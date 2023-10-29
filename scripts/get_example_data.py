@@ -11,5 +11,5 @@ if not os.path.exists("data/"):
 
 
 gdd.download_file_from_google_drive(
-    file_id=file_id, dest_path=destination, unzip=True, showsize=True, overwrite=True
+    file_id=file_id, dest_path=destination, unzip=False, showsize=True, overwrite=True
 )

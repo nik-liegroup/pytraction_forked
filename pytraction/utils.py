@@ -102,53 +102,43 @@ def interp_vec2grid(
 
 
 def normalize(x: np.ndarray) -> np.ndarray:
-    """[summary]
-
-    Args:
-        x (np.ndarray): [description]
-
-    Returns:
-        np.ndarray: [description]
     """
-    x = (x - np.min(x)) / (np.max(x) - np.min(x))
-    return np.array(x * 255, dtype="uint8")
+    Normalizes pixel intensity values to the range [0, 255], corresponding to 8-bit pixel values.
+    """
+    x = (x - np.min(x)) / (np.max(x) - np.min(x))  # Spreads the range to [0, 1]
+    return np.array(x * 255, dtype="uint8")  # Array is explicitly cast to unsigned 8-bit integer
 
 
 def clahe(data: np.ndarray) -> np.ndarray:
-    """[summary]
-
-    Args:
-        data (np.ndarray): [description]
-
-    Returns:
-        np.ndarray: [description]
     """
-    img = cv2.cvtColor(data, cv2.COLOR_GRAY2BGR)
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
+
+    """
+    img = cv2.cvtColor(data, cv2.COLOR_GRAY2BGR)  # Convert COLOR_GRAY2BGR image to COLOR_BGR2LAB color space
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)  # Convert COLOR_BGR2LAB image to LAB color space
+    l, a, b = cv2.split(lab)  # Separate image into its lightness (L) and color (A and B) components
+
+    # Enhance image contrast using Contrast Limited Adaptive Histogram Equalization (CLAHE)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    cl = clahe.apply(l)
-    limg = cv2.merge((cl, a, b))
-    return cv2.cvtColor(limg, cv2.COLOR_LAB2RGB)[:, :, 0]
+    cl = clahe.apply(l)  # Apply CLAHE to L component
+    limg = cv2.merge((cl, a, b))  # Merge modified L channel with original A and B channels
+    return cv2.cvtColor(limg, cv2.COLOR_LAB2RGB)[:, :, 0]  # Convert enhanced LAB image back to RGB color space but
+    # return only the L channel, which is the grayscale-enhanced image.
 
 
 def bead_density(img: np.ndarray) -> float:
-    """[summary]
-
-    Args:
-        img (np.ndarray): [description]
-
-    Returns:
-        float: [description]
+    """
+    Calculate bead density from image frame.
     """
 
-    # clahe_img = clahe(normalize(img))
+    # clahe_img = clahe(normalize(img))  # ToDo: Remove codeblock
     # print(clahe_img)
     # _, norm = cv2.threshold(clahe_img, 127/4, 255, cv2.THRESH_BINARY)
     # print(norm)
     # cv2.imwrite('thresh.png', norm)
 
-    clahe_img = clahe(normalize(img))
+    # Normalize image and enhance grayscale-contrast
+    clahe_img = clahe(normalize(img))  # ToDO: Normalized twice when called from process_stack -> _get_min_window_size
+    # Binarize image using threshold and normalize to values between [0, 1]
     norm = (
         cv2.adaptiveThreshold(
             clahe_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2
@@ -156,9 +146,10 @@ def bead_density(img: np.ndarray) -> float:
         / 255
     )
 
-    ones = len(norm[norm == 1])
+    ones = len(norm[norm == 1]) # Calculate number of beads
 
-    area = img.shape[0] * img.shape[1]
+    # Calculate total area of image and bead density
+    area = img.shape[0] * img.shape[1]  # ToDo: Check if this really calculates the image area
     area_beads = ones / area
 
     return area_beads

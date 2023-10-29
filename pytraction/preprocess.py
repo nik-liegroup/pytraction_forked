@@ -7,31 +7,47 @@ from pytraction.net import segment as pynet
 from pytraction.utils import align_slice, bead_density, normalize
 
 
-# get the images of interest
-def _get_reference_frame(ref_stack, _, bead_channel):
+# Underscore (_) is used as a placeholder for unused variable frame
+def _get_reference_frame(ref_stack: np.ndarray, _, bead_channel: int):
+    """
+    Extract and normalize bead channel from reference frame.
+    """
     return normalize(np.array(ref_stack[bead_channel, :, :]))
 
 
-def _get_img_frame(img_stack, frame, bead_channel):
+def _get_img_frame(img_stack: np.ndarray, frame: int, bead_channel: int):
+    """
+    Extract and normalize bead channel frame from image stack.
+    """
     return normalize(np.array(img_stack[frame, bead_channel, :, :]))
 
 
-def _get_cell_img(img_stack, frame, cell_channel):
+def _get_cell_img(img_stack: np.ndarray, frame: int, cell_channel: int):
+    """
+    Extract and normalize cell channel frame from image stack.
+    """
     return normalize(np.array(img_stack[frame, cell_channel, :, :]))
 
 
-def _get_raw_frames(img_stack, ref_stack, frame, bead_channel, cell_channel):
+def _get_raw_frames(img_stack: np.ndarray, ref_stack: np.ndarray, frame, bead_channel: int,
+                    cell_channel: int):
+    """
+    Extract normalized bead frame from image and reference stack get cell channels from image stack.
+    """
     img = _get_img_frame(img_stack, frame, bead_channel)
     ref = _get_reference_frame(ref_stack, frame, bead_channel)
     cell_img = _get_cell_img(img_stack, frame, cell_channel)
     return img, ref, cell_img
 
 
-# get the window size
-def _get_min_window_size(img, config):
+def _get_min_window_size(img: np.ndarray, config):
+    """
+    Calculate window size from bead density if min_window_size is not set in pyforce config file.
+    """
     if not config.config["piv"]["min_window_size"]:
         density = bead_density(img)
 
+        # Use K-nearest neighbors (KNN) classifier to predict minimum window size based on bead density
         knn = config.knn
         min_window_size = knn.predict([[density]])
         print(f"Automatically selected window size of {min_window_size}")
@@ -41,17 +57,19 @@ def _get_min_window_size(img, config):
         return config.config["piv"]["min_window_size"]
 
 
-# load frame roi
-def _load_frame_roi(roi, frame, nframes):
+def _load_frame_roi(roi, frame: int, nframes: int):
+    """
+    Load ROI for current frame.
+    """
     if isinstance(roi, list):
         assert (
             len(roi) == nframes
         ), f"Warning ROI list has len {len(roi)} which is not equal to \
                                     the number of frames ({nframes}). This would suggest that you do not \
                                     have the correct number of ROIs in the zip file."
-        return roi[frame]
+        return roi[frame]  # Return roi corresponding to active frame
     else:
-        return roi
+        return roi  # Return single ROI (or null) which should be applied to all images
 
 
 # get roi
@@ -100,6 +118,9 @@ def _located_most_central_cell(counters, mask):
 
 
 def _predict_roi(cell_img, config):
+    """
+
+    """
     # segment image
     mask = _cnn_segment_cell(cell_img, config)
     # get instance outlines

@@ -1,23 +1,24 @@
+# Import necessary libraries and modules
 import io
 import os
 import pickle
 import tempfile
-from typing import Tuple, Type
-
+from typing import Tuple, Type, Optional
 import h5py
 import numpy as np
 import segmentation_models_pytorch as smp
 import tifffile
 import torch
 import yaml
-from google_drive_downloader import GoogleDriveDownloader as gdd
+# ToDO: Clean import statements
 from numpy.lib.npyio import load
 from shapely import geometry
 
+import pytraction
+# Import custom modules from the 'pytraction' package
 from pytraction.dataset import Dataset
 from pytraction.net.dataloader import get_preprocessing
-from pytraction.preprocess import (_create_crop_mask_targets,
-                                   _get_min_window_size, _get_polygon_and_roi,
+from pytraction.preprocess import (_create_crop_mask_targets, _get_min_window_size, _get_polygon_and_roi,
                                    _get_raw_frames, _load_frame_roi)
 from pytraction.process import calculate_traction_map, iterative_piv
 from pytraction.roi import roi_loaders
@@ -25,41 +26,84 @@ from pytraction.utils import normalize
 
 
 class TractionForceConfig(object):
+    """
+    Configuration class for Traction Force Microscopy analysis.
+    Inherits from 'object' class (default).
+    """
     def __init__(
-        self,
-        E: float,
-        scaling_factor: float,
-        config: str,
-        min_window_size=None,
-        meshsize=10,
-        s=0.5,
-        knn=True,
-        cnn=True,
-        **kwards,
+            self,
+            E: float,  # ToDo: Rename to improve understandability
+            scaling_factor: float,
+            config: str,  # ToDo: Rename to improve understandability (config_os_path) -> However, later used as dict.
+            min_window_size: Optional[int] = None,
+            meshsize: float = 10,
+            s: float = 0.5,  # ToDo: Rename to improve understandability (???)
+            knn: bool = True,
+            cnn: bool = True,
+            **kwargs,
     ):
+        """
+        @param  E:  Young's modulus of culture substrate in Pa
+        @param  scaling_factor: Pixels per micrometer
+        @param  config: System path to config.yaml file
+        @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Determines the size of the subregions
+        used for tracking particle motion which should be adjusted to bead density of the input images
+        @param  meshsize: # ToDo: Missing description
+        @param  s: # ToDo: Missing description
+        @param knn: Load K-nearest neighbors model
+        @param cnn: Load convolutional neural network model
+        @param **kwargs
+        """
+        # Load and configure parameters from a YAML file
+        self.config = self._config_yaml(config=config, E=E, min_window_size=min_window_size, s=s, meshsize=meshsize,
+                                        scaling_factor=scaling_factor)
 
-        self.config = self._config_yaml(
-            config, E, min_window_size, s, meshsize, scaling_factor
-        )
-
+        # Load K-nearest neighbors (KNN) model if enabled
         self.knn = self._get_knn_model() if knn else None
+
+        # Load a Convolutional Neural Network (CNN) model if enabled
+        # Get device from config.yaml file ("device" is a nested key of "settings" key)
+        # This deep learning model architecture requires a preprocessing function
         self.model, self.pre_fn = (
-            self._get_cnn_model(device=self.config["settings"]["device"])
-            if cnn
-            else (None, None)
+            self._get_cnn_model(device=self.config["settings"]["device"]) if cnn else (None, None)
         )
 
-        for k, v in kwards:
+        # Set additional parameters by iterating over key: value pairs
+        for k, v in kwargs.items():
             self.config[k] = v
 
-    def __repr__():
-        pass
+
+    def __repr__(self):
+        """
+        Custom representation of the object, when called by the built-in repr() function.
+        """
+        pass  # ToDo: return f"TractionForceConfig({self.config}, {self.knn}, {self.model}, {self.pre_fn})"
+
 
     @staticmethod
-    def _config_yaml(config, E, min_window_size, s, meshsize, scaling_factor):
-        with open(config, "r") as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+    def _config_yaml(
+            E: float,
+            scaling_factor: float,
+            config: str,
+            min_window_size: Optional[int],
+            meshsize: float,
+            s: float
+    ):
+        """
+        Import config.yaml from system path to python dictionary.
 
+        @param  E:  Young's modulus of culture substrate in Pa
+        @param  scaling_factor: Pixels per micrometer
+        @param  config: System path to config.yaml file
+        @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Initial data suggest a parameter between
+        8 and 64 will be suitable for most applications but depends on the bead density of the input images
+        @param  meshsize: # ToDo:Missing description
+        @param  s: # ToDo:Missing description
+        """
+        with open(config, "r") as config_file:
+            config = yaml.load(stream=config_file, Loader=yaml.FullLoader)  # Parse yaml file to python dictionary
+
+        # Overwrite parts of imported config dictionary with user input data
         config["tfm"]["E"] = (E,)
         config["tfm"]["pix_per_mu"] = scaling_factor
         config["piv"]["min_window_size"] = (
@@ -73,71 +117,75 @@ class TractionForceConfig(object):
         )
         return config
 
+
     @staticmethod
-    def _get_cnn_model(device):
-        # data_20210320.zip
-        file_id = "1zShYcG8IMsMjB8hA6FcBTIZPfi_wDL4n"
-        tmpdir = tempfile.gettempdir()
-        destination = f"{tmpdir}/model.zip"
+    def _get_cnn_model(device: str):
+        """
+        Load a Convolutional Neural Network (CNN) model.
 
-        gdd.download_file_from_google_drive(
-            file_id=file_id,
-            dest_path=destination,
-            unzip=True,
-            showsize=True,
-            overwrite=False,
-        )
+        @param  device: Ensures that CNN model can be used on the computing device (cpu, cuda, ...)
+        """
+        # New path to the model file in the package directory
+        model_path = os.path.join(os.path.dirname(__file__), 'models', 'cnn_model.pth')
 
-        # currently using model from 20210316
-        best_model = torch.load(f"{tmpdir}/best_model_1.pth", map_location="cpu")
+        # Check if the model file exists at the new path
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"Model file not found at {model_path}. Please make sure it's in the 'models' folder.")
+
+        # Load the CNN model
+        # "cpu" ensures that model can be used on a CPU even if the original training was done on a different device
+        best_model = torch.load(f=model_path, map_location="cpu")  # ToDO: Rename to cnn_model
+
         if device == "cuda" and torch.cuda.is_available():
             best_model = best_model.to("cuda")
+
+        # Retrieves a preprocessing function for images from the segmentation_models_pytorch library
         preproc_fn = smp.encoders.get_preprocessing_fn("efficientnet-b1", "imagenet")
         preprocessing_fn = get_preprocessing(preproc_fn)
 
         return best_model, preprocessing_fn
 
+
     @staticmethod
     def _get_knn_model():
-        file_id = "1xQuGSUdW3nIO5lAm7DQb567sMEQgHmQD"
-        tmpdir = tempfile.gettempdir()
-        destination = f"{tmpdir}/knn.zip"
+        """
+        Load a K-nearest neighbors (KNN) model.
+        """
+        # New path to the KNN model file in the package directory
+        model_path = os.path.join(os.path.dirname(__file__), 'models', 'knn_model.pickle')
 
-        gdd.download_file_from_google_drive(
-            file_id=file_id,
-            dest_path=destination,
-            unzip=True,
-            showsize=False,
-            overwrite=False,
-        )
+        # Check if the KNN model file exists at the new path
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"KNN model file not found at {model_path}. Please make sure it's in the 'models' folder.")
 
-        with open(f"{tmpdir}/knn.pickle", "rb") as f:
-            knn = pickle.load(f)
+        with open(model_path, "rb") as f:
+            knn = pickle.load(f)  # ToDO: Rename to knn_model
 
         return knn
 
-    def load_data(
-        self, img_path: str, ref_path: str, roi_path: str = ""
-    ) -> Tuple[np.ndarray, np.ndarray, list]:
-        """[summary]
 
-        Args:
-            img_path (str): Image path for to nd image with shape (f,c,w,h)
-            ref_path (str): Reference path for to nd image with shape (c,w,h)
-            roi_path (str, optional): [description]. Defaults to ''.
-
-        Raises:
-            TypeError: Image data not loaded for img or ref path. Use .tif as ext'
-            RuntimeWarning: Please ensure that the input image has shape (t,c,w,h)
-            RuntimeWarning: Please ensure that the input ref image has shape (c,w,h)
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray, list]: [description]
+    def load_data(  # ToDO: Declare static?
+            self,
+            img_path: str,
+            ref_path: str,
+            roi_path: str = ""
+    ) -> Tuple[np.ndarray, np.ndarray, list]:  # Return type hint (not mandatory) for the method
         """
+        Load image data, reference data, and ROI data.
+
+        @param  img_path: System path to image .tiff file
+        @param  ref_path: System path to reference .tiff file
+        @param  roi_path: System path to reference .roi file
+        """
+        #  Read .tiff files in (t,c,w,h) format
         img = tifffile.imread(img_path)
         ref = tifffile.imread(ref_path)
-        roi = roi_loaders(roi_path)
 
+        roi = roi_loaders(roi_path)  # Load ROI using function from pytraction.roi
+
+        # Test if img & ref are instances of 'np.ndarray' class
         if not isinstance(img, np.ndarray) or not isinstance(ref, np.ndarray):
             msg = f"Image data not loaded for {img_path} or {ref_path}"
             raise TypeError(msg)
@@ -154,104 +202,153 @@ class TractionForceConfig(object):
 
 
 def _find_uv_outside_single_polygon(
-    x: np.ndarray,
-    y: np.ndarray,
-    u: np.ndarray,
-    v: np.ndarray,
-    polygon: Type[geometry.Polygon],
-) -> np.ndarray:
-    """Find the u and v components outside the ROI polygon.
-
-    Args:
-        x (np.ndarray): x-component
-        y (np.ndarray): y-component
-        u (np.ndarray): u-component
-        v (np.ndarray): v-component
-        polygon (Type[geometry.Polygon]): shapely polygon to test which (xi, yi) is within
-
-    Returns:
-        np.ndarray: (un, vn) array with noisy u and v components
+        x: np.ndarray,
+        y: np.ndarray,
+        u: np.ndarray,
+        v: np.ndarray,
+        polygon: Type[geometry.Polygon],  # Todo: Remove comma?
+) -> np.ndarray:  # Returns (un, vn) array with noisy u and v components
     """
+    Function to find u and v deformation field components outside a single polygon.
+
+    @param  x: x-position of deformation vector
+    @param  y: y-position of deformation vector
+    @param  u: u-component of deformation vector
+    @param  v: v-component of deformation vector
+    @param polygon: shapely polygon to test which (x_i, y_i) is within
+    """
+    # Create empty list
     noise = []
+
+    # Flatten multi-dim. arrays to 1D array and combine them element-wise, e.g. [(*,*,*,*), (*,*,*,*), ...]
     for (x0, y0, u0, v0) in zip(x.flatten(), y.flatten(), u.flatten(), v.flatten()):
-        p1 = geometry.Point([x0, y0])
+        p1 = geometry.Point([x0, y0])  # Creates shapely point for each tuple (x0, y0, u0, v0) at coordinates (x0, y0)
         if not p1.within(polygon):
-            noise.append(np.array([u0, v0]))
+            noise.append(np.array([u0, v0]))  # Add (u0, v0) to noise list if not in polygon
     return np.array(noise)
 
 
-def _custom_noise(tiff_stack: np.ndarray, config: Type[TractionForceConfig]) -> float:
-    """Returns the value for beta of custom noise provided as a tiff stack.
-
-    Args:
-        tiff_stack (np.ndarray): tiff stack with shape (t,w,h)
-        config (Type[TractionForceConfig]): Configuration for traction object.
-
-    Returns:
-        float: beta which is 1/var(u,v)
+def _custom_noise(tiff_stack: np.ndarray,
+                  config: Type[TractionForceConfig]
+                  ) -> float:
     """
+    Function to calculate custom noise value beta, representing the reciprocal of the variance of noise in a given image
+    stack.
 
-    tmpdir = tempfile.gettempdir()
-    destination = f"{tmpdir}/tmp_noise.pickle"
+    @param  tiff_stack: Image stack in .tiff format
+    @param  config: Configuration file for TFM Analysis
+    """
+    tmpdir = tempfile.gettempdir()  # Get system's temporary directory
+    destination = f"{tmpdir}/tmp_noise.pickle"  # Define path to save cache file
     cache = dict()
 
+    # Check if cache file with beta values for specific image stack already exists to save time
     if os.path.exists(destination):
         with open(destination, "rb") as f:
-            cache = pickle.load(f)
-        beta = cache.get(tiff_stack, None)
+            cache = pickle.load(f)  # Load previous computed noise data
+        beta = cache.get(tiff_stack, None)  # Check if there is a beta value for the current tiff_stack
 
         if beta:
-            return beta
+            return beta  # Returns value immediately if present
 
-    tiff_noise_stack = tifffile.imread(tiff_stack)
-    un, vn = np.array([]), np.array([])
-    max_range = max(tiff_noise_stack.shape[0] - 1, 3 - 1)
-    for i in range(max_range):
+    # Calculate beta value
+    tiff_noise_stack = tifffile.imread(tiff_stack)  # Reads in images of (t,w,h) form
+    un, vn = np.array([]), np.array([])  # Arrays to store components of displacement vectors
+
+    # Calculate maximum between number of (time-frames - 1) and 2
+    # This ensures that there are enough frames for beta calculations
+    max_range = max(tiff_noise_stack.shape[0] - 1, 2)
+
+    for i in range(max_range):  # Iterates at least over index 0 and 1
+        # Select two subsequent images
         img = normalize(tiff_noise_stack[i, :, :])
-        ref = normalize(tiff_noise_stack[i + 1, :, :])
-        x, y, u, v, stack = iterative_piv(img, ref, config)
+        ref = normalize(tiff_noise_stack[i + 1, :, :])  # ToDo: Index out of boundary exception if less than 2?
+
+        # Particle Image Velocimetry between img and ref
+        # 'iterative_piv' from pytraction.process
+        x, y, u, v, stack = iterative_piv(img, ref, config)  # Returns vectors and positions
+
+        # Append u,v to un and vn arrays
         un = np.append(un, u)
         vn = np.append(vn, v)
 
-    noise_vec = np.array([un.flatten(), vn.flatten()])
-    varnoise = np.var(noise_vec)
-    beta = 1 / varnoise
-    cache[tiff_stack] = beta
+    noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
+    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
+    beta = 1 / var_noise  # Reciprocal represents quality of PIV operation and is a measure of the inverse noise level
+    cache[tiff_stack] = beta  # Save beta value with 'tiff_stack' as key
 
+    # Save cache file to system's temporary directory
     with open(destination, "wb") as f:
         pickle.dump(cache, f)
 
-    return beta
+    return beta  # ToDo: Call noise measurement in PIV function to avoid double calculation of displacement field
 
 
-def _get_noise(config, x=None, y=None, u=None, v=None, polygon=None, custom_noise=None):
+def _get_noise(config,
+               x: np.ndarray = None,
+               y: np.ndarray = None,
+               u: np.ndarray = None,
+               v: np.ndarray = None,
+               polygon: Type[geometry.Polygon] = None,
+               custom_noise: np.ndarray = None):
+    """
+    Function to calculate beta noise value based on input data.
+
+    @param  x: x-position of deformation vector
+    @param  y: y-position of deformation vector
+    @param  u: u-component of deformation vector
+    @param  v: v-component of deformation vector
+    @param  polygon: shapely polygon to test which (x_i, y_i) is within
+    @param  custom_noise: Image stack in .tiff format
+    """
+
+    # If ROI (polygon) is set, use vectors outside of polygon for noise calculation
     if polygon:
-        noise_vec = _find_uv_outside_single_polygon(x, y, u, v, polygon)
+        noise_vec = _find_uv_outside_single_polygon(x=x, y=y, u=u, v=v, polygon=polygon)
+    # If custom_noise is provided in form of a tiff_stack, calculate and return beta value
     elif custom_noise:
-        return _custom_noise(custom_noise, config)
+        return _custom_noise(tiff_stack=custom_noise, config=config)
+    # Else calculate beta value in small region of image
     else:
-        noise = 10
-        xn, yn, un, vn = x[:noise], y[:noise], u[:noise], v[:noise]
-        noise_vec = np.array([un.flatten(), vn.flatten()])
+        noise = 10  # Constant for used image size
+        xn, yn, un, vn = x[:noise], y[:noise], u[:noise], v[:noise]  # ToDo: xn, yn unused
+        noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
 
-    varnoise = np.var(noise_vec)
-    beta = 1 / varnoise
+    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
+    beta = 1 / var_noise  # Reciprocal of displacement variance is a measure of the inverse noise level
+
     return beta
 
 
-def _write_frame_results(
-    results,
-    frame,
-    traction_map,
-    f_n_m,
-    stack,
-    cell_img,
-    mask,
-    beta,
-    L_optimal,
-    pos,
-    vec,
+def _write_frame_results(  # ToDO: Specify data types
+        results,
+        frame,
+        traction_map,
+        f_n_m,
+        stack,
+        cell_img,
+        mask,
+        beta: float,
+        L_optimal: float,
+        pos: np.ndarray,
+        vec: np.ndarray,
 ):
+    """
+    Function to write frame-specific results (to an HDF5 file?).
+
+    @param  results: # ToDo:Missing description
+    @param  frame: # ToDo:Missing description
+    @param  traction_map: # ToDo:Missing description
+    @param  f_n_m: # ToDo:Missing description
+    @param  stack: # ToDo:Missing description
+    @param  cell_img: # ToDo:Missing description
+    @param  mask: # ToDo:Missing description
+    @param  beta: # ToDo:Missing description
+    @param  L_optimal: # ToDo:Missing description
+    @param  pos: # ToDo:Missing description
+    @param vec: # ToDo:Missing description
+    """
+    # Use variables to partly overwrite data in results file
     results[f"frame/{frame}"] = frame
     results[f"traction_map/{frame}"] = traction_map
     results[f"force_field/{frame}"] = f_n_m
@@ -265,67 +362,86 @@ def _write_frame_results(
     return results
 
 
-def _write_metadata_results(results, config):
-    # create metadata with a placeholder
+# Define a function to write metadata (to an HDF5 file?)
+def _write_metadata_results(results,  # ToDO: Specify data types
+                            config):
+    # Create metadata group with a placeholder dataset
     results["metadata"] = 0
 
+    # Iterate through the PIV and TFM configuration parameters and store them as metadata
     for k, v in config["piv"].items():
         results["metadata"].attrs[k] = np.void(str(v).encode())
 
     for k, v in config["tfm"].items():
         results["metadata"].attrs[k] = np.void(str(v).encode())
-    return results
 
 
-def process_stack(
-    img_stack,
-    ref_stack,
-    config,
-    bead_channel=0,
-    cell_channel=1,
-    roi=False,
-    frame=[],
-    crop=False,
-    custom_noise=None,
+def process_stack(  # ToDO: Specify data types
+        img_stack: np.ndarray,
+        ref_stack: np.ndarray,
+        config,
+        bead_channel: int = 0,
+        cell_channel: int = 1,
+        roi = False,
+        frame=[],  # ToDO: Remove input variable
+        crop: bool = False,
+        custom_noise: Optional[np.ndarray] = None
 ):
-    nframes = img_stack.shape[0]
+    """
+    Central function to calculate PIV, traction map & save results to HDF5 file.
 
+    @param  img_stack: Image stack
+    @param  ref_stack: Reference image
+    @param  config: Config file for pyforce analysis
+    @param  bead_channel: Number of bead channel (0 oder 1)
+    @param  cell_channel: Number of bead channel (0 oder 1)
+    @param  roi: Set True if ROI is available
+    @param  frame: # ToDo:Missing description
+    @param  crop: # ToDo:Missing description
+    @param  custom_noise: Image stack used for noise calculations
+    """
+    # Determine the number of time-frames in the image stack
+    n_frames = img_stack.shape[0]
+
+    # Create an in-memory binary buffer for storing results without creating a physical file
     bytes_hdf5 = io.BytesIO()
 
+    # Open an HDF5 file for storing large and complex datasets
     with h5py.File(bytes_hdf5, "w") as results:
-
-        for frame in list(range(nframes)):
-            # load planes
+        # Loop through each time-frame
+        for frame in list(range(n_frames)):
+            # Load image, reference, and cell image for the current frame using pytraction.preprocess
             img, ref, cell_img = _get_raw_frames(
-                img_stack, ref_stack, frame, bead_channel, cell_channel
+                img_stack=img_stack, ref_stack=ref_stack, frame=frame, bead_channel=bead_channel,
+                cell_channel=cell_channel
             )
 
-            # get_minimum window_size
+            # Get the minimum window size for PIV
             min_window_size = _get_min_window_size(img, config)
             config.config["piv"]["min_window_size"] = min_window_size
 
-            # load_rois
-            roi_i = _load_frame_roi(roi, frame, nframes)
+            # Load ROI for the current frame
+            roi_i = _load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
 
-            # compute polygon and roi
-            polygon, pts = _get_polygon_and_roi(cell_img, roi_i, config)
+            # Compute polygon and ROI
+            polygon, pts = _get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
-            # crop targets
+            # Crop targets if necessary
             img, ref, cell_img, mask = _create_crop_mask_targets(
                 img, ref, cell_img, pts, crop, pad=50
             )
 
-            # do PIV
+            # Perform PIV to calculate displacement vectors (x, y, u, v)
             x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
 
-            # calculate noise
+            # Calculate noise value beta based on the provided data
             beta = _get_noise(config, x, y, u, v, polygon, custom_noise=custom_noise)
 
-            # make pos and vecs for TFM
+            # Create arrays for position (pos) and displacement vectors (vec)
             pos = np.array([x.flatten(), y.flatten()])
             vec = np.array([u.flatten(), v.flatten()])
 
-            # compute traction map
+            # Compute traction map, force field, and L_optimal
             traction_map, f_n_m, L_optimal = calculate_traction_map(
                 pos,
                 vec,
@@ -336,7 +452,7 @@ def process_stack(
                 config.config["tfm"]["E"],
             )
 
-            # write results for frame to h5
+            # Write results for the current frame to the HDF5 file
             results = _write_frame_results(
                 results,
                 frame,
@@ -351,10 +467,11 @@ def process_stack(
                 vec,
             )
 
-        # write metadata to results
+        # Write metadata to the results file
         results = _write_metadata_results(results, config.config)
 
-        # to recover
+        # To recover information in the future, use the following syntax:
         # h5py.File(results)['metadata'].attrs['img_path'].tobytes()
 
+    # Return the results as a Dataset
     return Dataset(bytes_hdf5)
