@@ -3,7 +3,7 @@ import io
 import os
 import pickle
 import tempfile
-from typing import Tuple, Type, Optional
+from typing import Tuple, Type, Optional, Union, Any
 import h5py
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -34,8 +34,8 @@ class TractionForceConfig(object):
             self,
             E: float,  # ToDo: Rename to improve understandability
             scaling_factor: float,
-            config: str,  # ToDo: Rename to improve understandability (config_os_path) -> However, later used as dict.
-            min_window_size: Optional[int] = None,
+            config: Union[str, dict],  # ToDo: Rename to improve understandability (config_os_path) -> However, later used as dict.
+            min_window_size: Union[int, None] = None,
             meshsize: float = 10,
             s: float = 0.5,  # ToDo: Rename to improve understandability (???)
             knn: bool = True,
@@ -72,23 +72,21 @@ class TractionForceConfig(object):
         for k, v in kwargs.items():
             self.config[k] = v
 
-
     def __repr__(self):
         """
         Custom representation of the object, when called by the built-in repr() function.
         """
         pass  # ToDo: return f"TractionForceConfig({self.config}, {self.knn}, {self.model}, {self.pre_fn})"
 
-
     @staticmethod
     def _config_yaml(
             E: float,
             scaling_factor: float,
             config: str,
-            min_window_size: Optional[int],
+            min_window_size: Union[int, None],
             meshsize: float,
             s: float
-    ):
+    ) -> dict:
         """
         Import config.yaml from system path to python dictionary.
 
@@ -117,9 +115,8 @@ class TractionForceConfig(object):
         )
         return config
 
-
     @staticmethod
-    def _get_cnn_model(device: str):
+    def _get_cnn_model(device: str) -> Tuple[Any, Any]:
         """
         Load a Convolutional Neural Network (CNN) model.
 
@@ -148,7 +145,7 @@ class TractionForceConfig(object):
 
 
     @staticmethod
-    def _get_knn_model():
+    def _get_knn_model() -> Any:
         """
         Load a K-nearest neighbors (KNN) model.
         """
@@ -171,7 +168,7 @@ class TractionForceConfig(object):
             img_path: str,
             ref_path: str,
             roi_path: str = ""
-    ) -> Tuple[np.ndarray, np.ndarray, list]:  # Return type hint (not mandatory) for the method
+    ) -> Tuple[np.ndarray, np.ndarray, list]:
         """
         Load image data, reference data, and ROI data.
 
@@ -206,7 +203,7 @@ def _find_uv_outside_single_polygon(
         y: np.ndarray,
         u: np.ndarray,
         v: np.ndarray,
-        polygon: Type[geometry.Polygon],  # Todo: Remove comma?
+        polygon: Type[geometry.Polygon]  # Todo: Remove comma?
 ) -> np.ndarray:  # Returns (un, vn) array with noisy u and v components
     """
     Function to find u and v deformation field components outside a single polygon.
@@ -229,7 +226,7 @@ def _find_uv_outside_single_polygon(
 
 
 def _custom_noise(tiff_stack: np.ndarray,
-                  config: Type[TractionForceConfig]
+                  config: dict
                   ) -> float:
     """
     Function to calculate custom noise value beta, representing the reciprocal of the variance of noise in a given image
@@ -290,7 +287,8 @@ def _get_noise(config,
                u: np.ndarray = None,
                v: np.ndarray = None,
                polygon: Type[geometry.Polygon] = None,
-               custom_noise: np.ndarray = None):
+               custom_noise: np.ndarray = None
+               ) -> float:
     """
     Function to calculate beta noise value based on input data.
 
@@ -318,7 +316,6 @@ def _get_noise(config,
     beta = 1 / var_noise  # Reciprocal of displacement variance is a measure of the inverse noise level
 
     return beta
-
 
 def _write_frame_results(  # ToDO: Specify data types
         results,
@@ -364,7 +361,7 @@ def _write_frame_results(  # ToDO: Specify data types
 
 # Define a function to write metadata (to an HDF5 file?)
 def _write_metadata_results(results,  # ToDO: Specify data types
-                            config):
+                            config: dict):
     # Create metadata group with a placeholder dataset
     results["metadata"] = 0
 
@@ -379,20 +376,20 @@ def _write_metadata_results(results,  # ToDO: Specify data types
 def process_stack(  # ToDO: Specify data types
         img_stack: np.ndarray,
         ref_stack: np.ndarray,
-        config,
+        config: type(TractionForceConfig),
+        roi: list,
         bead_channel: int = 0,
         cell_channel: int = 1,
-        roi = False,
         frame=[],  # ToDO: Remove input variable
         crop: bool = False,
-        custom_noise: Optional[np.ndarray] = None
-):
+        custom_noise: Union[np.ndarray, None] = None
+) -> type(Dataset):
     """
     Central function to calculate PIV, traction map & save results to HDF5 file.
 
     @param  img_stack: Image stack
     @param  ref_stack: Reference image
-    @param  config: Config file for pyforce analysis
+    @param  config: TractionForceConfig class instance for pyforce analysis
     @param  bead_channel: Number of bead channel (0 oder 1)
     @param  cell_channel: Number of bead channel (0 oder 1)
     @param  roi: Set True if ROI is available
@@ -400,6 +397,11 @@ def process_stack(  # ToDO: Specify data types
     @param  crop: # ToDo:Missing description
     @param  custom_noise: Image stack used for noise calculations
     """
+    # Check if config is instance of TractionForceConfig
+    if not isinstance(config, TractionForceConfig):
+        msg = f"Please verify that config is a instance of TractionForceConfig{type(config)}"
+        raise TypeError(msg)
+
     # Determine the number of time-frames in the image stack
     n_frames = img_stack.shape[0]
 
@@ -423,7 +425,7 @@ def process_stack(  # ToDO: Specify data types
             # Load ROI for the current frame
             roi_i = _load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
 
-            # Compute polygon and ROI
+            # Segment most central cell (or use ROI) to define polygon around cell
             polygon, pts = _get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
             # Crop targets if necessary
@@ -431,6 +433,7 @@ def process_stack(  # ToDO: Specify data types
                 img, ref, cell_img, pts, crop, pad=50
             )
 
+            # I am here
             # Perform PIV to calculate displacement vectors (x, y, u, v)
             x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
 

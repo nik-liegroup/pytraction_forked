@@ -3,7 +3,7 @@ building/*
 data/*
 .vscode/*
 data2/*
-examples/data/*
+examples/Analysis/*
 examples/pytraction/*
 *.h5
 !tests/data/*
