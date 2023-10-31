@@ -3,9 +3,6 @@ building/*
 data/*
 .vscode/*
 data2/*
-*.tif
-*.pth
-*.zip
 examples/data/*
 examples/pytraction/*
 *.h5
