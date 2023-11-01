@@ -8,7 +8,7 @@ import pandas as pd
 
 class Dataset(object):
     """
-    Small wrapper class to make hdf5 easy t
+    Small wrapper class to make hdf5 easy to use
     """
 
     def __init__(self, log):

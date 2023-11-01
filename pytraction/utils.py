@@ -14,8 +14,10 @@ from scipy.sparse import linalg as splinalg
 from pytraction.dataset import Dataset
 
 
-def align_slice(img: np.ndarray, ref: np.ndarray) -> Tuple[int, int, np.ndarray]:
-    """Given a bead image and a ref image compute the drift using cv2.matchTemplate
+def align_slice(img: np.ndarray,
+                ref: np.ndarray) -> Tuple[int, int, np.ndarray]:
+    """
+    Given a bead image and a ref image compute the drift using cv2.matchTemplate
     and return the drift corrected image along with the x drift (dx) and y drift (dy).
     The dx, dy shift is a measure of how much the image has moved with respect to the reference.
 
@@ -27,25 +29,33 @@ def align_slice(img: np.ndarray, ref: np.ndarray) -> Tuple[int, int, np.ndarray]
     Returns:
         Tuple[int, int, np.ndarray]: dx, dy, and aligned image slice (2, w, h)
     """
-    # amount to reduce template
-    depth = int(min(img.shape) * 0.1)
+    depth = int(min(img.shape) * 0.1)  # 10% of smaller dimension of input image
 
-    # calculate matchTemplate using ccorr_normed method
+    # Slide ref image (w x h) over input image (W x H) and calculate correlation landscape (W-w+1, H-h+1)
     tm_ccorr_normed = cv2.matchTemplate(
-        img, ref[depth:-depth, depth:-depth], cv2.TM_CCORR_NORMED
+        img, ref[depth:-depth, depth:-depth], cv2.TM_CCORR_NORMED  # Crops ref to 10% of img
     )
+
+    # Flatten array and find index of max. correlation
+    tm_ccorr_max = np.argmax(tm_ccorr_normed, axis=None)
+
+    # Convert flattened index back into a tuple of coordinates in a 2D array
     max_ccorr = np.unravel_index(
-        np.argmax(tm_ccorr_normed, axis=None), tm_ccorr_normed.shape
+        tm_ccorr_max, tm_ccorr_normed.shape
     )
 
-    # shifts in the x and y
-    dy = depth - max_ccorr[0]
-    dx = depth - max_ccorr[1]
+    # Transform location of best match from coordinate system of input image to c.s. of reference image
+    # ToDO: Check if this is correct
+    dy = depth - max_ccorr[0]  # 0th index represents row
+    dx = depth - max_ccorr[1]  # 1st index represents column
 
-    # transformation matrix
-    rows, cols = img.shape
-    M = np.float32([[1, 0, dx], [0, 1, dy]])
-    return dx, dy, cv2.warpAffine(img, M, (cols, rows))
+    rows, cols = img.shape  # Get image dimensions
+
+    # Initialize 2x3 transformation matrix
+    # [[a, b, tx],
+    # [c, d, ty]] -> a,d = 1: no scaling in x,y ; b,c = 0: no shearing or rotation ; tx, ty: translations
+    matrix = np.float32([[1, 0, dx], [0, 1, dy]])
+    return dx, dy, cv2.warpAffine(img, matrix, (cols, rows))  # Apply this transformation to the input image
 
 
 def sparse_cholesky(A):
@@ -155,13 +165,23 @@ def bead_density(img: np.ndarray) -> float:
     return area_beads
 
 
-def remove_boarder_from_aligned(aligned_img, aligned_ref):
+def remove_boarder_from_aligned(aligned_img: np.ndarray,
+                                aligned_ref: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Crops black borders from aligned image and returns it together with same size aligned_ref.
+    """
+    # ToDo: Just use the drift parameters to calculate crop image?
+    # Threshold image by setting values > 0 to 255 and return image
     _, thresh = cv2.threshold(aligned_img, 0, 255, cv2.THRESH_BINARY)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))  # ToDo: Remove as not used
+
+    # Get external contour boundaries of objects in thresh image using a simple chain approximation
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnt = sorted(contours, key=lambda x: cv2.contourArea(x))[0]
-    x, y, w, h = cv2.boundingRect(cnt)
-    return aligned_img[y : y + h, x : x + w], aligned_ref[y : y + h, x : x + w]
+
+    # Sort contours based on area and select object with the smallest value
+    cnt = sorted(contours, key=lambda sort: cv2.contourArea(sort))[0]
+    x, y, w, h = cv2.boundingRect(cnt)  # Get bounding rectangle which encloses contour
+    return aligned_img[y:y + h, x:x + w], aligned_ref[y:y + h, x:x + w]  # Return cropped img and ref
 
 
 def plot(

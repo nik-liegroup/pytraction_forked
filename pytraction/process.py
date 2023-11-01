@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from openpiv import widim
 
@@ -6,36 +8,38 @@ from pytraction.optimal_lambda import optimal_lambda
 from pytraction.utils import align_slice, remove_boarder_from_aligned
 
 
-def iterative_piv(img, ref, config):
+def iterative_piv(img: np.ndarray,
+                  ref: np.ndarray,
+                  config
+                  ):  # ToDo: Problems with defining output types as Tuple[...]
     """
-    DOCSTRING TO-DO
+    Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy) and displacement vectors (u,v)
+    for positions (x,y).
     """
-    # align stacks
-    dx, dy, img = align_slice(img, ref)
-
+    dx, dy, img = align_slice(img, ref)  # Get drift in x,y and drift corrected img
     if config.config["settings"]["crop_aligned_slice"]:
-        img, ref = remove_boarder_from_aligned(img, ref)
-
-    # return aligned stack
-    stack = np.stack([img, ref])
-
+        img, ref = remove_boarder_from_aligned(img, ref)  # Crop img and ref to remove black borders
+    stack = np.stack([img, ref])  # Creates stack from img and ref
     x, y, u, v, mask = compute_piv(img, ref, config)
-
-    # fit angle vs mag to gaussian to filter
 
     return x, y, u, v, (stack, dx, dy)
 
 
-def compute_piv(img, ref, config):
+def compute_piv(img: np.ndarray,
+                ref: np.ndarray,
+                config) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute PIV using a window displacement iterative method with implementation of window size coarsening.
+    """
     try:
-        # compute iterative PIV using openpiv
-        x, y, u, v, mask = widim.WiDIM(
+        # Compute PIV using the window displacement iterative method implemented by openpiv
+        x, y, u, v, mask = widim.WiDIM(  # Returns displacement vectors (u,v) for positions (x,y)
             ref.astype(np.int32),
             img.astype(np.int32),
-            np.ones_like(ref).astype(np.int32),
-            **config.config["piv"],
+            np.ones_like(ref).astype(np.int32),  # Mark whole image to be used for computation
+            **config.config["piv"],  # Unpack and pass the contents of a dictionary as keyword arguments
         )
-        return x, y, u, v, mask
+        return x, y, u, v, mask  # Mask from widim.WiDIM function call
     except Exception as e:
         if isinstance(e, ZeroDivisionError):
             config.config["piv"]["min_window_size"] = (
@@ -49,7 +53,13 @@ def compute_piv(img, ref, config):
             raise e
 
 
-def calculate_traction_map(pos, vec, beta, meshsize, s, pix_per_mu, E):
+def calculate_traction_map(pos: np.array,
+                           vec: np.array,
+                           beta: float,
+                           meshsize: float,
+                           s: float,
+                           pix_per_mu: float,
+                           E: float):
 
     # fourier space
     grid_mat, i_max, j_max, X, fuu, Ftux, Ftuy, u = fourier_xu(

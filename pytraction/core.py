@@ -281,13 +281,14 @@ def _custom_noise(tiff_stack: np.ndarray,
     return beta  # ToDo: Call noise measurement in PIV function to avoid double calculation of displacement field
 
 
+# ToDo: Move noise calculations in separate .py file
 def _get_noise(config,
-               x: np.ndarray = None,
-               y: np.ndarray = None,
-               u: np.ndarray = None,
-               v: np.ndarray = None,
-               polygon: Type[geometry.Polygon] = None,
-               custom_noise: np.ndarray = None
+               x: np.ndarray,
+               y: np.ndarray,
+               u: np.ndarray,
+               v: np.ndarray,
+               polygon: Type[geometry.Polygon],
+               custom_noise: np.ndarray
                ) -> float:
     """
     Function to calculate beta noise value based on input data.
@@ -317,33 +318,34 @@ def _get_noise(config,
 
     return beta
 
-def _write_frame_results(  # ToDO: Specify data types
-        results,
-        frame,
-        traction_map,
-        f_n_m,
-        stack,
-        cell_img,
-        mask,
+
+def _write_frame_results(
+        results: type(h5py.File),
+        frame: int,
+        traction_map: np.ndarray,
+        f_n_m: np.ndarray,
+        stack: np.stack,
+        cell_img: np.ndarray,
+        mask: np.ndarray,
         beta: float,
         L_optimal: float,
         pos: np.ndarray,
         vec: np.ndarray,
-):
+) -> type(h5py.File):
     """
-    Function to write frame-specific results (to an HDF5 file?).
+    Function to write frame-specific results to an HDF5 file.
 
-    @param  results: # ToDo:Missing description
-    @param  frame: # ToDo:Missing description
-    @param  traction_map: # ToDo:Missing description
-    @param  f_n_m: # ToDo:Missing description
-    @param  stack: # ToDo:Missing description
-    @param  cell_img: # ToDo:Missing description
-    @param  mask: # ToDo:Missing description
-    @param  beta: # ToDo:Missing description
+    @param  results: HDF5 file to write to
+    @param  frame: Time-frame in image stack
+    @param  traction_map: # 2D scalar map of traction stresses
+    @param  f_n_m: 2D traction force vector field
+    @param  stack: Combination of image and reference
+    @param  cell_img: BF image of cell.
+    @param  mask: Mask to separate cell from background
+    @param  beta: Scalar value containing information about noise levels in PIV
     @param  L_optimal: # ToDo:Missing description
-    @param  pos: # ToDo:Missing description
-    @param vec: # ToDo:Missing description
+    @param  pos: Coordinates of deformation-vector positions
+    @param vec: Coordinates of deformation-vectors
     """
     # Use variables to partly overwrite data in results file
     results[f"frame/{frame}"] = frame
@@ -360,8 +362,8 @@ def _write_frame_results(  # ToDO: Specify data types
 
 
 # Define a function to write metadata (to an HDF5 file?)
-def _write_metadata_results(results,  # ToDO: Specify data types
-                            config: dict):
+def _write_metadata_results(results: type(h5py.File),
+                            config: dict) -> type(h5py.File):
     # Create metadata group with a placeholder dataset
     results["metadata"] = 0
 
@@ -371,7 +373,7 @@ def _write_metadata_results(results,  # ToDO: Specify data types
 
     for k, v in config["tfm"].items():
         results["metadata"].attrs[k] = np.void(str(v).encode())
-
+    return results
 
 def process_stack(  # ToDO: Specify data types
         img_stack: np.ndarray,
@@ -433,19 +435,19 @@ def process_stack(  # ToDO: Specify data types
                 img, ref, cell_img, pts, crop, pad=50
             )
 
-            # I am here
-            # Perform PIV to calculate displacement vectors (x, y, u, v)
+            # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
             x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
 
-            # Calculate noise value beta based on the provided data
+            # Calculate noise value beta inside ROI, segmented cell or whole image
             beta = _get_noise(config, x, y, u, v, polygon, custom_noise=custom_noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
             pos = np.array([x.flatten(), y.flatten()])
             vec = np.array([u.flatten(), v.flatten()])
 
+            ### ToDo: NOT YET CHECKED
             # Compute traction map, force field, and L_optimal
-            traction_map, f_n_m, L_optimal = calculate_traction_map(
+            traction_map, f_n_m, l_optimal = calculate_traction_map(
                 pos,
                 vec,
                 beta,
@@ -454,6 +456,7 @@ def process_stack(  # ToDO: Specify data types
                 config.config["tfm"]["pix_per_mu"],
                 config.config["tfm"]["E"],
             )
+            ###
 
             # Write results for the current frame to the HDF5 file
             results = _write_frame_results(
@@ -465,13 +468,13 @@ def process_stack(  # ToDO: Specify data types
                 cell_img,
                 mask,
                 beta,
-                L_optimal,
+                l_optimal,
                 pos,
                 vec,
             )
 
         # Write metadata to the results file
-        results = _write_metadata_results(results, config.config)
+        _write_metadata_results(results, config.config)
 
         # To recover information in the future, use the following syntax:
         # h5py.File(results)['metadata'].attrs['img_path'].tobytes()
