@@ -18,8 +18,8 @@ tfm:
   pix_per_mu: 9.64
 
 settings:
-  bead_channel: 0
-  cell_channel: 1
+  bead_channel: 1
+  cell_channel: 0
   segment: False
   device: cpu
-  crop_aligned_slice: False
+  crop_aligned_slice: True

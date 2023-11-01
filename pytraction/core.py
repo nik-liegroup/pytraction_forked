@@ -191,6 +191,10 @@ class TractionForceConfig(object):
             msg = f"Please ensure that the input image has shape (t,c,w,h) the current shape is {img.shape}"
             raise RuntimeWarning(msg)
 
+        if len(ref.shape) == 4:
+            ref = ref[-1:, :, :, :]  # Project to last time-step
+            ref = np.reshape(ref, (ref.shape[1], ref.shape[2], ref.shape[3]))
+
         if len(ref.shape) != 3:
             msg = f"Please ensure that the input ref image has shape (c,w,h) the current shape is {ref.shape}"
             raise RuntimeWarning(msg)

@@ -5,14 +5,14 @@ import os
 from pytraction import (TractionForceConfig, process_stack, plot, Dataset)
 
 pix_per_mu = 9.64  # The number of pixels per micron
-E = 100  # Young's modulus in Pa
+E = 1000  # Young's modulus in Pa
 config_path = os.path.join('.', 'config', 'config.yaml')
 
-img_path = 'e01_pos1_axon1.tif'
-ref_path = 'e01_pos1_axon1_ref.tif'
-
+img_path = '1kPa_PAA_Gel_1_Before_Tryp_Pos9.tif'
+ref_path = '1kPa_PAA_Gel_1_After_Tryp_Pos9.tif'
+roi_path  = '1kPa_PAA_Gel_1_Pos9.roi'
 traction_config = TractionForceConfig(E=E, scaling_factor=pix_per_mu, min_window_size=64, config=config_path)
-img, ref, roi = traction_config.load_data(img_path, ref_path)
+img, ref, roi = traction_config.load_data(img_path, ref_path, roi_path)
 
 print(f'The expected shape of the image is {img.shape}')
 print(f'The expected shape of the reference is {ref.shape}')
@@ -35,11 +35,10 @@ ax[1,1].imshow(ref[1,:,:], cmap='gray')
 ax[1,1].set_axis_off()
 
 plt.tight_layout()
-plt.show()
+#plt.show()
 
 log = process_stack(img[:1, :, :, :], ref, traction_config, roi=roi, crop=False)
-for frame in range(len(log)):
-    plot(log, frame=frame, vmax=3, mask=True)
+plot(log, frame=0, mask=True)
 plt.show()
 
 log.save('1kPa_PAA_Gel_Tryp_Before_Position_6.h5')
