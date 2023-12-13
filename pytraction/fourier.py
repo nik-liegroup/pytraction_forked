@@ -5,29 +5,20 @@ from pytraction.utils import interp_vec2grid
 
 
 def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
-    """[summary]
-
-    Args:
-        pos ([type]): [description]
-        vec ([type]): [description]
-        meshsize ([type]): [description]
-        E ([type]): [description]
-        s ([type]): [description]
-        grid_mat ([type]): [description]
-
-    Returns:
-        [type]: [description]
     """
-
-    # shifted positions of data by displacements
+    Transform displacement field to Fourier space. The fourier transform of a 2D vector field are two FT of the
+    respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field in
+    fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
+    component.
+    """
+    # Transform the position values to the deformed state
     new_pos = pos + vec
 
-    # interpolate data onto rectangular grid. If grid_mat is empty, a new grid
-    # will be constructed. Otherwise the grid in grid_mat will be used.
+    # Interpolate shifted vector field onto rectangular grid
     grid_mat, u, i_max, j_max = interp_vec2grid(new_pos, vec, meshsize, grid_mat)
 
-    # shapes might be off here!
-    # construct wave vectors
+    # ToDo: Shapes might be off here!
+    # Construct wave vectors
     kx_vec = (
         2
         * np.pi

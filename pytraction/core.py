@@ -449,7 +449,6 @@ def process_stack(  # ToDO: Specify data types
             pos = np.array([x.flatten(), y.flatten()])
             vec = np.array([u.flatten(), v.flatten()])
 
-            ### ToDo: NOT YET CHECKED
             # Compute traction map, force field, and L_optimal
             traction_map, f_n_m, l_optimal = calculate_traction_map(
                 pos,
@@ -460,7 +459,6 @@ def process_stack(  # ToDO: Specify data types
                 config.config["tfm"]["pix_per_mu"],
                 config.config["tfm"]["E"],
             )
-            ###
 
             # Write results for the current frame to the HDF5 file
             results = _write_frame_results(

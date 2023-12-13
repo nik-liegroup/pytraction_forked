@@ -76,37 +76,47 @@ def sparse_cholesky(A):
 
 
 def interp_vec2grid(
-    pos: np.ndarray, vec: np.ndarray, cluster_size: int, grid_mat=np.array([])
-) -> Tuple[np.ndarray, int, int]:
-    """[summary]
-
-    Args:
-        pos (np.ndarray): [description]
-        vec (np.ndarray): [description]
-        cluster_size (int): [description]
-        grid_mat ([type], optional): [description]. Defaults to np.array([]).
-
-    Returns:
-        Tuple[np.ndarray, int, int]: [description]
+        pos: np.ndarray,
+        vec: np.ndarray,
+        meshsize: int,
+        grid_mat=np.array([])
+) -> Tuple[np.ndarray, np.ndarray, int, int]:
     """
-    if not grid_mat:
-        max_eck = [np.max(pos[0]), np.max(pos[1])]
-        min_eck = [np.min(pos[0]), np.min(pos[1])]
+    Interpolates the vector field onto a rectangular grid which will be constructed using the data dimensions or can be
+    handed manually using the grid_mat variable.
 
-        i_max = np.floor((max_eck[0] - min_eck[0]) / cluster_size)
-        j_max = np.floor((max_eck[1] - min_eck[1]) / cluster_size)
+    meshsize: Must be smaller or equal to 1.
+    """
+    if not grid_mat:  # If no grid is provided
+        # Get boundary dimensions of vector field to calculate grid dimensions
+        max_eck = [np.max(pos[0]), np.max(pos[1])]  # Calculate maximum values of positions along x- and y-axis
+        min_eck = [np.min(pos[0]), np.min(pos[1])]  # Calculate minimum values of positions along x- and y-axis
 
+        # Calculate size of vector field in each direction and divide by meshsize yielding the number of mesh intervals
+        i_max = np.floor((max_eck[0] - min_eck[0]) / meshsize)   # np.floor rounds result to integer number
+        j_max = np.floor((max_eck[1] - min_eck[1]) / meshsize)
+
+        # Ensure that number of mesh intervals are even by subtracting the remainder when divided by 2
         i_max = i_max - np.mod(i_max, 2)
         j_max = j_max - np.mod(j_max, 2)
 
-        X = min_eck[0] + np.arange(0.5, i_max) * cluster_size
-        Y = min_eck[1] + np.arange(0.5, j_max) * cluster_size
+        # Generate evenly spaced grid points within the calculated dimensions of the grid by adding multiples of
+        # meshsize to min x-y-values
+        x_grid = min_eck[0] + np.arange(0.5, i_max, 1) * meshsize  # Meshsize must be smaller or equal than 1
+        y_grid = min_eck[1] + np.arange(0.5, j_max, 1) * meshsize
 
-        x, y = np.meshgrid(X, Y)
+        # Creates rectangular grid from every combination of provided x and y coordinates
+        xx, yy = np.meshgrid(x_grid, y_grid)  # xx and yy are both 2D matrices
+        # [(a, a), (a, b),      [a, a,       [a, b
+        #  (b, a), (b, b)] ->    b, b]  and   a, b]
 
-        grid_mat = np.stack([x, y], axis=2)
+        # Merges 2D xx and 2D yy array into one 3D array by combining the respective coordinates into pairs
+        grid_mat = np.stack([xx, yy], axis=2)
+        # [[a, a], [a, b]
+        #  [b, a], [b, b]]
 
-        u = griddata(pos.T, vec.T, (x, y), method="cubic")
+        # Perform interpolation of displacement vectors at pos onto a grid defined by xx and yy
+        u = griddata(pos.T, vec.T, (xx, yy), method="cubic")
 
         return grid_mat, u, int(i_max), int(j_max)
 

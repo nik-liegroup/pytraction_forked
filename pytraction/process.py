@@ -60,8 +60,10 @@ def calculate_traction_map(pos: np.array,
                            s: float,
                            pix_per_mu: float,
                            E: float):
-
-    # fourier space
+    """
+    Calculates the traction map given the displacement vector field and the noise value beta.
+    """
+    # Transform displacement field to Fourier space
     grid_mat, i_max, j_max, X, fuu, Ftux, Ftuy, u = fourier_xu(
         pos, vec, meshsize, 1, s, []
     )
