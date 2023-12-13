@@ -17,17 +17,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
         python-version: ${{ matrix.python-version }}
         activate-environment: myenv
 
-    - name: Install Conda dependencies
-      run: conda install -c conda-forge shapely flake8 pytest-cov --yes
-
     - name: Install locally
       run: pip install -e .
+
+    - name: Install Conda dependencies
+      run: conda install -c conda-forge shapely flake8 pytest-cov --yes
 
     - name: Test with pytest
       run: pytest --cov=. --cov-report=xml --ignore=pytraction/net/*
@@ -36,4 +37,3 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
         files: coverage.xml
-        

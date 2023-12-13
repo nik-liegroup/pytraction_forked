@@ -25,7 +25,7 @@ REQUIREMENTS = [
     "matplotlib==3.3.4",
     "natsort==7.1.1",
     "networkx==2.5",
-    "numpy==1.23.1",
+    "numpy==1.20.1",
     "opencv-python==4.5.1.48",
     "OpenPIV==0.23.4",
     "packaging==20.9",
