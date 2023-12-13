@@ -24,7 +24,7 @@ jobs:
     - name: Create Conda environment
       run: conda create -n myenv python=${{ matrix.python-version }} --yes
     - name: Activate Conda environment
-      run: source activate myenv
+      run: conda activate myenv || source activate myenv
     - name: Install Conda dependencies
       run: conda install -c conda-forge shapely --yes
     - name: Install Pip dependencies
