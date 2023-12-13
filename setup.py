@@ -41,7 +41,7 @@ REQUIREMENTS = [
     "read-roi==1.6.0",
     "scikit-image==0.18.1",
     "scipy==1.6.1",
-    "Shapely==1.7.1",
+    "shapely==1.7.1",
     "smmap==3.0.5",
     "tifffile==2021.3.5",
     "toml==0.10.2",
