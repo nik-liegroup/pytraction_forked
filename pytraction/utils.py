@@ -185,7 +185,7 @@ def remove_boarder_from_aligned(aligned_img: np.ndarray,
 
 
 def plot(
-    log: Type(Dataset),
+    log: type(Dataset),
     frame: int = 0,
     vmax: float = None,
     mask: bool = True,

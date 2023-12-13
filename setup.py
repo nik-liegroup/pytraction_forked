@@ -1,6 +1,6 @@
 from setuptools import setup
 
-VERSION = "0.0.1"
+VERSION = "0.1.0"
 
 
 DESCRIPTION = "Bayesian Traction Force Microscopy"
@@ -25,7 +25,7 @@ REQUIREMENTS = [
     "matplotlib==3.3.4",
     "natsort==7.1.1",
     "networkx==2.5",
-    "numpy==1.20.1",
+    "numpy==1.23.1",
     "opencv-python==4.5.1.48",
     "OpenPIV==0.23.4",
     "packaging==20.9",
@@ -70,16 +70,18 @@ PACKAGES = [
 options = {
     "name": "pytraction",
     "version": VERSION,
-    "author": "Ryan Greenhalgh",
-    "author_email": "rdg31@cam.ac.uk",
+    "author": "Ryan Greenhalgh & Niklas Gampl",
+    "author_email": "rdg31@cam.ac.uk, niklas.gampl@fau.de",
     "description": DESCRIPTION,
     "classifiers": CLASSIFIERS,
     "packages": PACKAGES,
+    "include_package_data": True,
+    "package_data": {'pytraction': ['*.pth', '*.pickle',]},
     "setup_requires": SETUP_REQUIRES,
     "test_requires": TESTS_REQUIRES,
     "install_requires": REQUIREMENTS,
     "entry_points": {
         "console_scripts": ["pytraction_get_data=pytraction.get_example_data:main"]
-    },
+    }
 }
 setup(**options)

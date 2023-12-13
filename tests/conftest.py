@@ -1,12 +1,7 @@
 import os
 
-from pytraction.get_example_data import main
 
-
-def pytest_configure():
-    # call main() to get example data
-    main()
-
+def validate_data_files():
     assert os.path.exists("data/example1/e01_pos1_axon1_ref.tif")
     assert os.path.exists("data/example1/e01_pos1_axon1.tif")
 
