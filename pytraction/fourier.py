@@ -10,6 +10,13 @@ def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
     respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field in
     fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
     component.
+
+    @param  pos:
+    @param  vec:
+    @param  meshsize: Must be smaller or equal to 1
+    @param  E: Elastic modulus in Pa
+    @param  s: Parameter of Green's function
+    @param  grid_mat:
     """
     # Transform the position values to the deformed state
     new_pos = pos + vec
@@ -18,77 +25,106 @@ def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
     grid_mat, u, i_max, j_max = interp_vec2grid(new_pos, vec, meshsize, grid_mat)
 
     # ToDo: Shapes might be off here!
-    # Construct wave vectors
+    # ToDo: Is (i_max - 1) / 2) supposed to be (i_max / 2 - 1) since it is even?
+
+    # Calculate an array of representable spatial frequencies (Natural numbers) in a discrete system up to the Nyquist
+    # frequency and scale it with 2pi/(i_max * meshsize) to get the corresponding wave vectors
     kx_vec = (
         2
         * np.pi
         / i_max
         / meshsize
-        * np.concatenate([np.arange(0, (i_max - 1) / 2), -np.arange(i_max / 2, 0, -1)])
+        * np.concatenate([np.arange(0, (i_max - 1) / 2, 1), -np.arange(i_max / 2, 0, -1)])
     )
-    kx_vec = np.expand_dims(kx_vec, axis=0)
+
     ky_vec = (
-        2
-        * np.pi
-        / j_max
-        / meshsize
-        * np.concatenate([np.arange(0, (j_max - 1) / 2), -np.arange(j_max / 2, 0, -1)])
+            2
+            * np.pi
+            / j_max
+            / meshsize
+            * np.concatenate([np.arange(0, (j_max - 1) / 2, 1), -np.arange(j_max / 2, 0, -1)])
     )
+
+    # Add singleton dimension at the beginning of the array (1, N) -> (1, 1, N)
+    kx_vec = np.expand_dims(kx_vec, axis=0)
     ky_vec = np.expand_dims(ky_vec, axis=0)
 
-    kx = np.tile(kx_vec.T, (1, j_max))
+    # Create 2D matrix kx & ky with dim(i_max, N) and dim(j_max, N) where each row contains the same values as the
+    # original kx_vec & ky_vec arrays
+    kx = np.tile(kx_vec.T, (1, j_max))  # Transpose as np.tile works along the second axis
     ky = np.tile(ky_vec, (i_max, 1))
 
-    # We ignore DC component below and can therefore set k(1,1) =1
+    # Set zero frequency component (Offset) to establishes a reference point against which variations can be measured
     kx[0, 0] = 1
     ky[0, 0] = 1
+
+    # Calculate the magnitude of the wave vector
     k = np.sqrt(kx ** 2 + ky ** 2)
 
-    # calculate Green's function
-    conf = 2 * (1 + s) / (E * k ** 3)
+    # Calculate solution to Boussinesq equation (Green's function) given a point traction
+    conf = 2 * (1 + s) / (E * k ** 3)  # Normalization coefficient
+
+    # Derive components of the Green's function matrix
     gf_xx = conf * ((1 - s) * k ** 2 + s * ky ** 2)
     gf_xy = conf * (-s * kx * ky)
     gf_yy = conf * ((1 - s) * k ** 2 + s * kx ** 2)
 
-    # set DC component to one
+    # Remove self interaction terms in matrix components
     gf_xx[0, 0] = 0
     gf_xy[0, 0] = 0
     gf_yy[0, 0] = 0
 
-    # FT of the real matrix is symmetric
-    gf_xy[int(i_max // 2), :] = 0
-    gf_xy[:, int(j_max // 2)] = 0
+    # Account for (conjugate) symmetries in Fourier-transformed space as FT of a real function is symmetric
+    # ToDo: Check if this is the correct approach
+    gf_xy[int(i_max // 2), :] = 0  # Set values in middle row to zero
+    gf_xy[:, int(j_max // 2)] = 0  # Set values in middle column to zero
 
-    # reshape stuff to produce a large sparse matrix X
+    # Reshape matrices from dim(i_max, j_max) to dim(1, i_max * j_max) by concatenating rows
     g1 = gf_xx.reshape(1, i_max * j_max)
     g2 = gf_yy.reshape(1, i_max * j_max)
-
-    X1 = np.array([g1, g2]).T.flatten()
-    X1 = np.expand_dims(X1, axis=1)
-
     g3 = gf_xy.reshape(1, i_max * j_max)
+
+    # Create zero filled matrix in the shape of g3
     g4 = np.zeros(g3.shape)
 
-    X2 = np.array([g3, g4]).T.flatten()
-    X2 = np.expand_dims(X2, axis=1)
-    X3 = X2[1:]
+    # Concatenate and transposing g1 & g2 along first axis resulting in array of dim(i_max * j_max, 2) and flatten by
+    # concatenating rows
+    x1 = np.array([g1, g2]).T.flatten()
+    x2 = np.array([g3, g4]).T.flatten()
 
+    # Adds a new axis to get array with dim(i_max * j_max * 2, 1)
+    x1 = np.expand_dims(x1, axis=1)
+    x2 = np.expand_dims(x2, axis=1)
+
+    # Eliminate the padding of zeros in x3 that was added during the construction of g4
+    x3 = x2[1:]
+
+    # Create a column vector (pad) containing a single element, which is 0
     pad = np.expand_dims(np.array([0]), axis=1)
-    data = np.array([np.concatenate([X3, pad]).T, X1.T, np.concatenate([pad, X3]).T])
-    data = np.squeeze(data, axis=1)
-    X = spdiags(data, (-1, 0, 1), len(X1), len(X1))
 
-    # remove any nan values in the displacement field #iss14
+    # Concatenate three arrays along the first axis
+    data = np.array([np.concatenate([x3, pad]).T, x1.T, np.concatenate([pad, x3]).T])
+    data = np.squeeze(data, axis=1)  # Removes the unnecessary singleton dimension introduced by np.expand_dims
+
+    # Create 2D sparse matrix representing the differential operator acting on Fourier-transformed displacement fields
+    X = spdiags(data, (-1, 0, 1), len(x1), len(x1))
+
+    # Remove all NaN values in the displacement field
+    # ToDo: Issue14
     u = np.nan_to_num(u)
 
-    # Fourier transform displacement field
-    ftux = np.fft.fft2(u[:, :, 0]).T
-    ftuy = np.fft.fft2(u[:, :, 1]).T
+    # Calculate 2D Fourier transform of displacement field components
+    ftux = np.fft.fft2(u[:, :, 0]).T  # FT of x component of u
+    ftuy = np.fft.fft2(u[:, :, 1]).T  # FT of y component of u
 
+    # Reshaped into column vectors
     fux1 = ftux.reshape(i_max * j_max, 1)
     fux2 = ftuy.reshape(i_max * j_max, 1)
 
+    # Combine x- and y-Fourier columns into a single array with resulting dim(i_max * j_max, 2)
     fuu = np.array([fux1, fux2]).T.flatten()
+
+    # Add additional dimension to array for further processing
     fuu = np.expand_dims(fuu, axis=1)
 
     return grid_mat, i_max, j_max, X, fuu, ftux, ftuy, u
