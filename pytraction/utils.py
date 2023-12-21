@@ -84,10 +84,8 @@ def interp_vec2grid(
     """
     Interpolates the vector field onto a rectangular grid which will be constructed using the data dimensions or can be
     handed manually using the grid_mat variable.
-
-    meshsize: Must be smaller or equal to 1.
     """
-    if not grid_mat:  # If no grid is provided
+    if not grid_mat:  # If no grid is provided (No grid equals [])
         # Get boundary dimensions of vector field to calculate grid dimensions
         max_eck = [np.max(pos[0]), np.max(pos[1])]  # Calculate maximum values of positions along x- and y-axis
         min_eck = [np.min(pos[0]), np.min(pos[1])]  # Calculate minimum values of positions along x- and y-axis
@@ -102,7 +100,7 @@ def interp_vec2grid(
 
         # Generate evenly spaced grid points within the calculated dimensions of the grid by adding multiples of
         # meshsize to min x-y-values
-        x_grid = min_eck[0] + np.arange(0.5, i_max, 1) * meshsize  # Meshsize must be smaller or equal than 1
+        x_grid = min_eck[0] + np.arange(0.5, i_max, 1) * meshsize
         y_grid = min_eck[1] + np.arange(0.5, j_max, 1) * meshsize
 
         # Creates rectangular grid from every combination of provided x and y coordinates
@@ -119,7 +117,7 @@ def interp_vec2grid(
         u = griddata(pos.T, vec.T, (xx, yy), method="cubic")
 
         return grid_mat, u, int(i_max), int(j_max)
-
+    # ToDo: Add else statement
 
 def normalize(x: np.ndarray) -> np.ndarray:
     """
@@ -150,12 +148,6 @@ def bead_density(img: np.ndarray) -> float:
     Calculate bead density from image frame.
     """
 
-    # clahe_img = clahe(normalize(img))  # ToDo: Remove codeblock
-    # print(clahe_img)
-    # _, norm = cv2.threshold(clahe_img, 127/4, 255, cv2.THRESH_BINARY)
-    # print(norm)
-    # cv2.imwrite('thresh.png', norm)
-
     # Normalize image and enhance grayscale-contrast
     clahe_img = clahe(normalize(img))  # ToDO: Normalized twice when called from process_stack -> _get_min_window_size
     # Binarize image using threshold and normalize to values between [0, 1]
@@ -166,10 +158,10 @@ def bead_density(img: np.ndarray) -> float:
         / 255
     )
 
-    ones = len(norm[norm == 1]) # Calculate number of beads
+    ones = len(norm[norm == 1])  # Calculate number of beads
 
     # Calculate total area of image and bead density
-    area = img.shape[0] * img.shape[1]  # ToDo: Check if this really calculates the image area
+    area = img.shape[0] * img.shape[1]
     area_beads = ones / area
 
     return area_beads

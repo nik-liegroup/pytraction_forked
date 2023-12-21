@@ -6,22 +6,28 @@ from pytraction.utils import interp_vec2grid
 
 def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
     """
-    Transform displacement field to Fourier space. The fourier transform of a 2D vector field are two FT of the
-    respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field in
-    fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
+    Transform displacement field (pos, vec) to Fourier space. The fourier transform of a 2D vector field are two FT of
+    the respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field
+    in fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
     component.
+    Returns the rectangular grid (grid_mat) constructed from the image dimensions and even number of mesh intervals in
+    x- and y- direction (i_max, j_max), the differential operator (X) acting on Fourier-transformed displacement fields,
+    2D Fourier transform components of displacement field (ftux, ftuy) and the fourier transformed displacement field u.
 
-    @param  pos:
-    @param  vec:
-    @param  meshsize: Must be smaller or equal to 1
-    @param  E: Elastic modulus in Pa
-    @param  s: Parameter of Green's function
-    @param  grid_mat:
+    Input
+    @param  pos: Positional coordinates for displacement vectors
+    @param  vec: Coordinates of displacement vectors
+    @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
+    @param  E: Elastic modulus of substrate in Pa
+    @param  s: Parameter of Green's function (Poisson ratio?)
+    @param  grid_mat: Predefined grid for displacement field interpolation
+
     """
     # Transform the position values to the deformed state
     new_pos = pos + vec
 
     # Interpolate shifted vector field onto rectangular grid
+    # ToDo: grid_mat has wrong form, but is not needed for further processing
     grid_mat, u, i_max, j_max = interp_vec2grid(new_pos, vec, meshsize, grid_mat)
 
     # ToDo: Shapes might be off here!
@@ -134,7 +140,7 @@ def reg_fourier_tfm(
     Ftux,
     Ftuy,
     L,
-    E,
+    E: float,
     s,
     cluster_size,
     i_max,
@@ -144,6 +150,9 @@ def reg_fourier_tfm(
     zdepth=None,
     slim=False,
 ):
+    """
+
+    """
 
     V = 2 * (1 + s) / E
     # shapes might be off here!

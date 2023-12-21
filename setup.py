@@ -19,6 +19,7 @@ REQUIREMENTS = [
     "decorator==4.4.2",
     "gitdb==4.0.5",
     "GitPython==3.1.14",
+    "h5py==3.2.1",
     "imageio==2.9.0",
     "iniconfig==1.1.1",
     "kiwisolver==1.3.1",
@@ -52,7 +53,6 @@ REQUIREMENTS = [
     "googledrivedownloader==0.4",
     "requests==2.25.1",
     "scikit-learn==0.24.1",
-    "h5py==3.2.1",
     "PyYAML==5.4.1",
 ]
 

@@ -147,8 +147,9 @@ def _get_polygon_and_roi(cell_img: np.ndarray,
                          config
                          ) -> Union[type(shapely.Polygon), type(np.ndarray)]:
     """
-    Segments cell using CNN model or and returns polygon shape of ROI
+    Returns polygon shape of cell outline from CNN model prediction or ROI definition.
     """
+    # Segments cell using CNN model and return polygon shape of ROI
     if config.config["settings"]["segment"]:
         polyx, polyy = _predict_roi(cell_img, config)  # Predict cell outline
         pts = np.array(list(zip(polyx, polyy)), np.int32)  # Creates array of (x,y) coordinate pairs

@@ -1,20 +1,17 @@
-# Import necessary libraries and modules
+# Import general libraries and modules
 import io
 import os
 import pickle
 import tempfile
-from typing import Tuple, Type, Optional, Union, Any
+from typing import Tuple, Type, Union, Any
 import h5py
 import numpy as np
 import segmentation_models_pytorch as smp
 import tifffile
 import torch
 import yaml
-# ToDO: Clean import statements
-from numpy.lib.npyio import load
 from shapely import geometry
 
-import pytraction
 # Import custom modules from the 'pytraction' package
 from pytraction.dataset import Dataset
 from pytraction.net.dataloader import get_preprocessing
@@ -27,36 +24,37 @@ from pytraction.utils import normalize
 
 class TractionForceConfig(object):
     """
-    Configuration class for Traction Force Microscopy analysis.
+    Configuration class for traction force microscopy analysis.
     Inherits from 'object' class (default).
     """
     def __init__(
             self,
             E: float,  # ToDo: Rename to improve understandability
             scaling_factor: float,
-            config: Union[str, dict],  # ToDo: Rename to improve understandability (config_os_path) -> However, later used as dict.
+            config_path: str,
             min_window_size: Union[int, None] = None,
             meshsize: float = 10,
-            s: float = 0.5,  # ToDo: Rename to improve understandability (???)
+            s: float = 0.5,  # ToDo: Rename to improve understandability
             knn: bool = True,
             cnn: bool = True,
             **kwargs,
     ):
         """
-        @param  E:  Young's modulus of culture substrate in Pa
+        @param  E: Young's modulus of culture substrate in Pa
         @param  scaling_factor: Pixels per micrometer
-        @param  config: System path to config.yaml file
+        @param  config_path: System path to config.yaml file
         @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Determines the size of the subregions
         used for tracking particle motion which should be adjusted to bead density of the input images
-        @param  meshsize: # ToDo: Missing description
-        @param  s: # ToDo: Missing description
-        @param knn: Load K-nearest neighbors model
-        @param cnn: Load convolutional neural network model
+        @param  meshsize: Specifies number of grid intervals to interpolate displacement field on
+        @param  s: Poisson's ratio of substrate
+        @param knn: Load K-nearest neighbors model to predict minimum window size based on bead density. Used only if
+        "min_window_size" variable is not set
+        @param cnn: Load convolutional neural network model for predicting the cell contour in an image
         @param **kwargs
         """
         # Load and configure parameters from a YAML file
-        self.config = self._config_yaml(config=config, E=E, min_window_size=min_window_size, s=s, meshsize=meshsize,
-                                        scaling_factor=scaling_factor)
+        self.config = self._config_yaml(config_path=config_path, E=E, min_window_size=min_window_size, s=s,
+                                        meshsize=meshsize, scaling_factor=scaling_factor)
 
         # Load K-nearest neighbors (KNN) model if enabled
         self.knn = self._get_knn_model() if knn else None
@@ -76,40 +74,42 @@ class TractionForceConfig(object):
         """
         Custom representation of the object, when called by the built-in repr() function.
         """
-        pass  # ToDo: return f"TractionForceConfig({self.config}, {self.knn}, {self.model}, {self.pre_fn})"
+        pass
 
     @staticmethod
     def _config_yaml(
             E: float,
             scaling_factor: float,
-            config: str,
+            config_path: str,
             min_window_size: Union[int, None],
             meshsize: float,
             s: float
     ) -> dict:
         """
-        Import config.yaml from system path to python dictionary.
+        Import the config.yaml file from system path and parse to python dictionary.
 
-        @param  E:  Young's modulus of culture substrate in Pa
+        @param  E: Young's modulus of culture substrate in Pa
         @param  scaling_factor: Pixels per micrometer
-        @param  config: System path to config.yaml file
+        @param  config_path: System path to config.yaml file
         @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Initial data suggest a parameter between
         8 and 64 will be suitable for most applications but depends on the bead density of the input images
-        @param  meshsize: # ToDo:Missing description
-        @param  s: # ToDo:Missing description
+        @param  meshsize: Specifies number of grid intervals to interpolate displacement field on
+        @param  s: Poisson's ratio of substrate
         """
-        with open(config, "r") as config_file:
+        with open(config_path, "r") as config_file:
             config = yaml.load(stream=config_file, Loader=yaml.FullLoader)  # Parse yaml file to python dictionary
 
         # Overwrite parts of imported config dictionary with user input data
-        config["tfm"]["E"] = (E,)
+        config["tfm"]["E"] = E
         config["tfm"]["pix_per_mu"] = scaling_factor
         config["piv"]["min_window_size"] = (
             min_window_size
             if min_window_size is not None
             else config["piv"]["min_window_size"]
         )
-        config["tfm"]["s"] = s if s is not None else config["tfm"]["s"]
+        config["tfm"]["s"] = (
+            s if s is not None else config["tfm"]["s"]
+        )
         config["tfm"]["meshsize"] = (
             meshsize if meshsize is not None else config["tfm"]["meshsize"]
         )
@@ -132,17 +132,16 @@ class TractionForceConfig(object):
 
         # Load the CNN model
         # "cpu" ensures that model can be used on a CPU even if the original training was done on a different device
-        best_model = torch.load(f=model_path, map_location="cpu")  # ToDO: Rename to cnn_model
+        cnn_model = torch.load(f=model_path, map_location="cpu")  # ToDO: Rename to cnn_model
 
         if device == "cuda" and torch.cuda.is_available():
-            best_model = best_model.to("cuda")
+            best_model = cnn_model.to("cuda")
 
         # Retrieves a preprocessing function for images from the segmentation_models_pytorch library
         preproc_fn = smp.encoders.get_preprocessing_fn("efficientnet-b1", "imagenet")
         preprocessing_fn = get_preprocessing(preproc_fn)
 
-        return best_model, preprocessing_fn
-
+        return cnn_model, preprocessing_fn
 
     @staticmethod
     def _get_knn_model() -> Any:
@@ -158,31 +157,32 @@ class TractionForceConfig(object):
                 f"KNN model file not found at {model_path}. Please make sure it's in the 'models' folder.")
 
         with open(model_path, "rb") as f:
-            knn = pickle.load(f)  # ToDO: Rename to knn_model
+            knn_model = pickle.load(f)
 
-        return knn
+        return knn_model
 
-
-    def load_data(  # ToDO: Declare static?
-            self,
+    @staticmethod
+    def load_data(
             img_path: str,
             ref_path: str,
             roi_path: str = ""
-    ) -> Tuple[np.ndarray, np.ndarray, list]:
+    ) -> Tuple[np.ndarray, np.ndarray, Union[Tuple[list, list], list, None]]:
         """
-        Load image data, reference data, and ROI data.
+        Load image data, reference data, and ROI data from given paths.
 
         @param  img_path: System path to image .tiff file
         @param  ref_path: System path to reference .tiff file
-        @param  roi_path: System path to reference .roi file
+        @param  roi_path: System path to file containing ROI information (.csv, .roi or .zip)
         """
-        #  Read .tiff files in (t,c,w,h) format
+        #  Read .tiff image file as numpy array in (t,c,w,h) format
         img = tifffile.imread(img_path)
+
+        #  Read .tiff reference file as numpy array in (c,w,h) format
         ref = tifffile.imread(ref_path)
 
-        roi = roi_loaders(roi_path)  # Load ROI using function from pytraction.roi
+        roi = roi_loaders(roi_path)  # Load ROI file
 
-        # Test if img & ref are instances of 'np.ndarray' class
+        # Check if img & ref are instances of the 'np.ndarray' class
         if not isinstance(img, np.ndarray) or not isinstance(ref, np.ndarray):
             msg = f"Image data not loaded for {img_path} or {ref_path}"
             raise TypeError(msg)
@@ -229,6 +229,7 @@ def _find_uv_outside_single_polygon(
     return np.array(noise)
 
 
+# ToDo: Move noise calculations in separate .py file
 def _custom_noise(tiff_stack: np.ndarray,
                   config: dict
                   ) -> float:
@@ -285,7 +286,6 @@ def _custom_noise(tiff_stack: np.ndarray,
     return beta  # ToDo: Call noise measurement in PIV function to avoid double calculation of displacement field
 
 
-# ToDo: Move noise calculations in separate .py file
 def _get_noise(config,
                x: np.ndarray,
                y: np.ndarray,
@@ -379,14 +379,14 @@ def _write_metadata_results(results: type(h5py.File),
         results["metadata"].attrs[k] = np.void(str(v).encode())
     return results
 
-def process_stack(  # ToDO: Specify data types
+
+def process_stack(
         img_stack: np.ndarray,
         ref_stack: np.ndarray,
         config: type(TractionForceConfig),
-        roi: list,
-        bead_channel: int = 0,
-        cell_channel: int = 1,
-        frame=[],  # ToDO: Remove input variable
+        roi: Union[Tuple[list, list], list, None],
+        bead_channel: int = 1,
+        cell_channel: int = 0,
         crop: bool = False,
         custom_noise: Union[np.ndarray, None] = None
 ) -> type(Dataset):
@@ -395,12 +395,11 @@ def process_stack(  # ToDO: Specify data types
 
     @param  img_stack: Image stack
     @param  ref_stack: Reference image
-    @param  config: TractionForceConfig class instance for pyforce analysis
-    @param  bead_channel: Number of bead channel (0 oder 1)
-    @param  cell_channel: Number of bead channel (0 oder 1)
-    @param  roi: Set True if ROI is available
-    @param  frame: # ToDo:Missing description
-    @param  crop: # ToDo:Missing description
+    @param  config: TractionForceConfig class instance for pytraction analysis
+    @param  bead_channel: Bead channel occurrence (0 or 1)
+    @param  cell_channel: Cell channel occurrence (0 or 1)
+    @param  roi: Roi data as returned from load_data function
+    @param  crop: # Crop the image to the selected ROI with a border margin of 10%
     @param  custom_noise: Image stack used for noise calculations
     """
     # Check if config is instance of TractionForceConfig
@@ -414,11 +413,11 @@ def process_stack(  # ToDO: Specify data types
     # Create an in-memory binary buffer for storing results without creating a physical file
     bytes_hdf5 = io.BytesIO()
 
-    # Open an HDF5 file for storing large and complex datasets
+    # Open an HDF5 file for storing large and complex data structures
     with h5py.File(bytes_hdf5, "w") as results:
         # Loop through each time-frame
         for frame in list(range(n_frames)):
-            # Load image, reference, and cell image for the current frame using pytraction.preprocess
+            # Load image, reference, and cell image in 8bit format for the current frame
             img, ref, cell_img = _get_raw_frames(
                 img_stack=img_stack, ref_stack=ref_stack, frame=frame, bead_channel=bead_channel,
                 cell_channel=cell_channel
@@ -431,7 +430,7 @@ def process_stack(  # ToDO: Specify data types
             # Load ROI for the current frame
             roi_i = _load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
 
-            # Segment most central cell (or use ROI) to define polygon around cell
+            # Segment most central cell (or use ROI) to define polygon around cell. Returns (None, None) if otherwise.
             polygon, pts = _get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
             # Crop targets if necessary

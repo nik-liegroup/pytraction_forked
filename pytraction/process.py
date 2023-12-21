@@ -83,8 +83,11 @@ def calculate_traction_map(pos: np.array,
     traction_magnitude = E * traction_magnitude
     f_n_m = E * f_n_m
 
-    # off with the shapes flip back into positon
+    # off with the shapes flip back into position
     traction_magnitude = traction_magnitude.reshape(i_max, j_max).T
     traction_magnitude = np.flip(traction_magnitude, axis=0)
+
+    # Calculate inner product of traction (f_n_m or traction) and displacement (u) fields
+    # Strain energy is the integral of resulting scalar field on defined domain
 
     return traction_magnitude, f_n_m, L

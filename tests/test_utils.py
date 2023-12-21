@@ -77,3 +77,7 @@ def test_normalize():
         assert img.dtype == np.uint8, "normalize did not return the correct dtype"
         assert np.min(img) == 0, "normalize did not scale down to 0"
         assert np.max(img) == 255, "normalize did not scale up to 255"
+
+
+def test_bead_density():
+    pass
