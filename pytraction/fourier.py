@@ -1,40 +1,39 @@
 import numpy as np
 from scipy.sparse import spdiags
-
 from pytraction.utils import interp_vec2grid
 
 
-def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
+def fourier_xu(
+        u: np.ndarray,
+        i_max: int,
+        j_max: int,
+        E: float,
+        s: float,
+        meshsize: float
+):
     """
-    Transform displacement field (pos, vec) to Fourier space. The fourier transform of a 2D vector field are two FT of
+    Transform displacement field u to Fourier space. The fourier transform of a 2D vector field are two FT of
     the respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field
     in fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
     component.
-    Returns the rectangular grid (grid_mat) constructed from the image dimensions and even number of mesh intervals in
-    x- and y- direction (i_max, j_max), the differential operator (X) acting on Fourier-transformed displacement fields,
-    2D Fourier transform components of displacement field (ftux, ftuy) and the fourier transformed displacement field u.
+    Returns the differential operator (X) acting on Fourier-transformed displacement fields, 2D Fourier transform
+    components of displacement field (ftux, ftuy) and the fourier transformed displacement field u.
 
     Input
-    @param  pos: Positional coordinates for displacement vectors
-    @param  vec: Coordinates of displacement vectors
-    @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
+    @param  u: Displacement field containing positions and vectors
+    @param  i_max
+    @param  j_max
     @param  E: Elastic modulus of substrate in Pa
-    @param  s: Parameter of Green's function (Poisson ratio?)
-    @param  grid_mat: Predefined grid for displacement field interpolation
-
+    @param  s: Poisson's ratio of substrate
+    @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
     """
-    # Transform the position values to the deformed state
-    new_pos = pos + vec
-
-    # Interpolate shifted vector field onto rectangular grid
-    # ToDo: grid_mat has wrong form, but is not needed for further processing
-    grid_mat, u, i_max, j_max = interp_vec2grid(new_pos, vec, meshsize, grid_mat)
-
-    # ToDo: Shapes might be off here!
-    # ToDo: Is (i_max - 1) / 2) supposed to be (i_max / 2 - 1) since it is even?
+    # Calculate 2D Fourier transform of displacement field components
+    ftux = np.fft.fft2(u[:, :, 0]).T  # FT of x component of u
+    ftuy = np.fft.fft2(u[:, :, 1]).T  # FT of y component of u
 
     # Calculate an array of representable spatial frequencies (Natural numbers) in a discrete system up to the Nyquist
     # frequency and scale it with 2pi/(i_max * meshsize) to get the corresponding wave vectors
+    # ToDo: Consider re-arranging k-field to represent ascending values
     kx_vec = (
         2
         * np.pi
@@ -51,39 +50,32 @@ def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
             * np.concatenate([np.arange(0, (j_max - 1) / 2, 1), -np.arange(j_max / 2, 0, -1)])
     )
 
-    # Add singleton dimension at the beginning of the array (1, N) -> (1, 1, N)
-    kx_vec = np.expand_dims(kx_vec, axis=0)
-    ky_vec = np.expand_dims(ky_vec, axis=0)
+    # Creates rectangular grid from every combination of provided kx and ky coordinates
+    kxx, kyy = np.meshgrid(kx_vec, ky_vec)  # kx and ky are both 2D matrices
 
-    # Create 2D matrix kx & ky with dim(i_max, N) and dim(j_max, N) where each row contains the same values as the
-    # original kx_vec & ky_vec arrays
-    kx = np.tile(kx_vec.T, (1, j_max))  # Transpose as np.tile works along the second axis
-    ky = np.tile(ky_vec, (i_max, 1))
+    # Set zero frequency components to arbitrary value to avoid division by zero
+    kxx[0, 0] = 1
+    kyy[0, 0] = 1
 
-    # Set zero frequency component (Offset) to establishes a reference point against which variations can be measured
-    kx[0, 0] = 1
-    ky[0, 0] = 1
+    # Calculate the wave vectors magnitudes
+    k = np.sqrt(kxx ** 2 + kyy ** 2)
 
-    # Calculate the magnitude of the wave vector
-    k = np.sqrt(kx ** 2 + ky ** 2)
-
-    # Calculate solution to Boussinesq equation (Green's function) given a point traction
+    # Calculate fourier transform of Boussinesq solution (Green's function) given a point traction
     conf = 2 * (1 + s) / (E * k ** 3)  # Normalization coefficient
 
     # Derive components of the Green's function matrix
-    gf_xx = conf * ((1 - s) * k ** 2 + s * ky ** 2)
-    gf_xy = conf * (-s * kx * ky)
-    gf_yy = conf * ((1 - s) * k ** 2 + s * kx ** 2)
+    gf_xx = conf * ((1 - s) * k ** 2 + s * kyy ** 2)
+    gf_xy = conf * (s * kxx * kyy)
+    gf_yy = conf * ((1 - s) * k ** 2 + s * kxx ** 2)
 
-    # Remove self interaction terms in matrix components
+    # Set all zero frequency components in greens function to zero
     gf_xx[0, 0] = 0
     gf_xy[0, 0] = 0
     gf_yy[0, 0] = 0
 
-    # Account for (conjugate) symmetries in Fourier-transformed space as FT of a real function is symmetric
-    # ToDo: Check if this is the correct approach
-    gf_xy[int(i_max // 2), :] = 0  # Set values in middle row to zero
-    gf_xy[:, int(j_max // 2)] = 0  # Set values in middle column to zero
+    # ToDo: Check if this is the correct approach (Set gf_xy for lowest frequencies to zero)
+    # gf_xy[int(i_max // 2), :] = 0  # Set values in middle row to zero
+    # gf_xy[:, int(j_max // 2)] = 0  # Set values in middle column to zero
 
     # Reshape matrices from dim(i_max, j_max) to dim(1, i_max * j_max) by concatenating rows
     g1 = gf_xx.reshape(1, i_max * j_max)
@@ -115,30 +107,14 @@ def fourier_xu(pos, vec, meshsize, E, s, grid_mat):
     # Create 2D sparse matrix representing the differential operator acting on Fourier-transformed displacement fields
     X = spdiags(data, (-1, 0, 1), len(x1), len(x1))
 
-    # Remove all NaN values in the displacement field
-    # ToDo: Issue14
-    u = np.nan_to_num(u)
-
-    # Calculate 2D Fourier transform of displacement field components
-    ftux = np.fft.fft2(u[:, :, 0]).T  # FT of x component of u
-    ftuy = np.fft.fft2(u[:, :, 1]).T  # FT of y component of u
-
-    # Reshaped into column vectors
-    fux1 = ftux.reshape(i_max * j_max, 1)
-    fux2 = ftuy.reshape(i_max * j_max, 1)
-
-    # Combine x- and y-Fourier columns into a single array with resulting dim(i_max * j_max, 2)
-    fuu = np.array([fux1, fux2]).T.flatten()
-
-    # Add additional dimension to array for further processing
-    fuu = np.expand_dims(fuu, axis=1)
-
-    return grid_mat, i_max, j_max, X, fuu, ftux, ftuy, u
+    return ftux, ftuy, kxx, kyy, i_max, j_max, X
 
 
 def reg_fourier_tfm(
-    Ftux,
-    Ftuy,
+    ftux,
+    ftuy,
+    kx,
+    ky,
     L,
     E: float,
     s,
@@ -156,30 +132,6 @@ def reg_fourier_tfm(
 
     V = 2 * (1 + s) / E
     # shapes might be off here!
-    # construct wave vectors
-    kx_vec = (
-        2
-        * np.pi
-        / i_max
-        / cluster_size
-        * np.concatenate([np.arange(0, (i_max - 1) / 2), -np.arange(i_max / 2, 0, -1)])
-    )
-    kx_vec = np.expand_dims(kx_vec, axis=0)
-    ky_vec = (
-        2
-        * np.pi
-        / j_max
-        / cluster_size
-        * np.concatenate([np.arange(0, (j_max - 1) / 2), -np.arange(j_max / 2, 0, -1)])
-    )
-    ky_vec = np.expand_dims(ky_vec, axis=0)
-
-    kx = np.tile(kx_vec.T, (1, j_max))
-    ky = np.tile(ky_vec, (i_max, 1))
-
-    # We ignore DC component below and can therefore set k(1,1) =1
-    kx[0, 0] = 1
-    ky[0, 0] = 1
 
     if slim:  # Slim output. Calculate only traction forces for the case z=0
         Ginv_xx = (
@@ -223,8 +175,8 @@ def reg_fourier_tfm(
 
         Ginv_xy[int(i_max / 2), :] = 0
         Ginv_xy[:, int(j_max / 2)] = 0
-        Ftfx = Ginv_xx * Ftux + Ginv_xy * Ftuy
-        Ftfy = Ginv_xy * Ftux + Ginv_yy * Ftuy
+        Ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
+        Ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
 
         # simply set variables that we do not need to calculate here to 0
         f_pos = 0
@@ -460,8 +412,8 @@ def reg_fourier_tfm(
         Ginv_xy[int(i_max // 2), :] = 0
         Ginv_xy[:, int(j_max // 2)] = 0
 
-        Ftfx = Ginv_xx * Ftux + Ginv_xy * Ftuy
-        Ftfy = Ginv_xy * Ftux + Ginv_yy * Ftuy
+        Ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
+        Ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
 
         f_n_m = np.zeros(Ftfx.shape + (2,))
         f_n_m[:, :, 0] = np.real(np.fft.ifft2(Ftfx))

@@ -18,16 +18,8 @@ def align_slice(img: np.ndarray,
                 ref: np.ndarray) -> Tuple[int, int, np.ndarray]:
     """
     Given a bead image and a ref image compute the drift using cv2.matchTemplate
-    and return the drift corrected image along with the x drift (dx) and y drift (dy).
+    and return the drift corrected bead image along with the x drift (dx) and y drift (dy).
     The dx, dy shift is a measure of how much the image has moved with respect to the reference.
-
-
-    Args:
-        img (np.ndarray): input bead image
-        ref (np.ndarray): reference bead image
-
-    Returns:
-        Tuple[int, int, np.ndarray]: dx, dy, and aligned image slice (2, w, h)
     """
     depth = int(min(img.shape) * 0.1)  # 10% of smaller dimension of input image
 
@@ -87,12 +79,12 @@ def interp_vec2grid(
     """
     if not grid_mat:  # If no grid is provided (No grid equals [])
         # Get boundary dimensions of vector field to calculate grid dimensions
-        max_eck = [np.max(pos[0]), np.max(pos[1])]  # Calculate maximum values of positions along x- and y-axis
-        min_eck = [np.min(pos[0]), np.min(pos[1])]  # Calculate minimum values of positions along x- and y-axis
+        max_pos = [np.max(pos[0]), np.max(pos[1])]  # Calculate maximum values of positions along x- and y-axis
+        min_pos = [np.min(pos[0]), np.min(pos[1])]  # Calculate minimum values of positions along x- and y-axis
 
         # Calculate size of vector field in each direction and divide by meshsize yielding the number of mesh intervals
-        i_max = np.floor((max_eck[0] - min_eck[0]) / meshsize)   # np.floor rounds result to integer number
-        j_max = np.floor((max_eck[1] - min_eck[1]) / meshsize)
+        i_max = np.floor((max_pos[0] - min_pos[0]) / meshsize)   # np.floor rounds result to integer number
+        j_max = np.floor((max_pos[1] - min_pos[1]) / meshsize)
 
         # Ensure that number of mesh intervals are even by subtracting the remainder when divided by 2
         i_max = i_max - np.mod(i_max, 2)
@@ -100,8 +92,8 @@ def interp_vec2grid(
 
         # Generate evenly spaced grid points within the calculated dimensions of the grid by adding multiples of
         # meshsize to min x-y-values
-        x_grid = min_eck[0] + np.arange(0.5, i_max, 1) * meshsize
-        y_grid = min_eck[1] + np.arange(0.5, j_max, 1) * meshsize
+        x_grid = min_pos[0] + np.arange(0.5, i_max, 1) * meshsize
+        y_grid = min_pos[1] + np.arange(0.5, j_max, 1) * meshsize
 
         # Creates rectangular grid from every combination of provided x and y coordinates
         xx, yy = np.meshgrid(x_grid, y_grid)  # xx and yy are both 2D matrices
@@ -116,8 +108,18 @@ def interp_vec2grid(
         # Perform interpolation of displacement vectors at pos onto a grid defined by xx and yy
         u = griddata(pos.T, vec.T, (xx, yy), method="cubic")
 
-        return grid_mat, u, int(i_max), int(j_max)
-    # ToDo: Add else statement
+    else:
+        # Calculate number of intervals in x- and y-direction
+        i_max = np.size(grid_mat[:, :, 0]) - 1
+        j_max = np.size(grid_mat[:, :, 1]) - 1
+
+        # Perform interpolation of displacement vectors at pos onto a grid defined by grid_mat
+        u = griddata(pos.T, vec.T, (grid_mat[:, :, 0], grid_mat[:, :, 1]), method="cubic")
+
+    # Remove all NaN values in the displacement field
+    u = np.nan_to_num(u)
+
+    return grid_mat, u, int(i_max), int(j_max)
 
 def normalize(x: np.ndarray) -> np.ndarray:
     """

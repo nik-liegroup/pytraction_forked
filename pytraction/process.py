@@ -63,19 +63,20 @@ def calculate_traction_map(pos: np.array,
     """
     Calculates the traction map given the displacement vector field and the noise value beta.
     """
-    # Transform displacement field to Fourier space
-    grid_mat, i_max, j_max, X, fuu, Ftux, Ftuy, u = fourier_xu(
-        pos, vec, meshsize, 1, s, []
-    )
+    # Interpolate displacement field onto rectangular grid using meshsize
+    grid_mat, u, i_max, j_max = interp_vec2grid(pos, vec, meshsize, [])
 
-    # get lambda from baysian bad boi
+    # Transform displacement field to fourier space
+    ftux, ftuy, kxx, kyy, i_max, j_max, X = fourier_xu(u, i_max, j_max, E, s, meshsize)
+
+    # Calculate lambda from baysian model
     L, evidencep, evidence_one = optimal_lambda(
-        beta, fuu, Ftux, Ftuy, 1, s, meshsize, i_max, j_max, X, 1
+        beta, ftux, ftuy, kx, ky, E, s, meshsize, i_max, j_max, X, 1
     )
 
-    # do the TFM with bays lambda
+    # Calculate traction field in fourier space and transfor back to spatial domain
     pos, traction, traction_magnitude, f_n_m, _, _ = reg_fourier_tfm(
-        Ftux, Ftuy, L, 1, s, meshsize, i_max, j_max, grid_mat, pix_per_mu, 0
+        ftux, ftuy, kx, ky, L, E, s, meshsize, i_max, j_max, grid_mat, pix_per_mu, 0
     )
 
     # rescale traction with proper Young's modulus

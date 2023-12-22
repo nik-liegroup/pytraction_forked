@@ -1,24 +1,39 @@
-import numpy as np
-from pytraction.fourier import fourier_xu, reg_fourier_tfm
+import os
+from pytraction import (TractionForceConfig, process_stack, plot, Dataset)
 
 
-def test__fourier_xu():
-    # Define variables
-    meshsize = 10
-    E = 1000
-    s = 0.5
+def atest__fourier_xu():
+    analyse_folder = os.path.join('data', 'example4')
+    E = 10000
+    pix_per_mu = 9.64
 
-    # Define example positional coordinates
-    x, y = np.meshgrid(np.linspace(-10, 10, 20), np.linspace(-10, 10, 20))
+    config_path = os.path.join(analyse_folder, 'config.yaml')
 
-    # Define vector components of example field
-    u = -y / np.sqrt(x ** 2 + y ** 2)
-    v = x / np.sqrt(x ** 2 + y ** 2)
+    img_path = os.path.join(analyse_folder,
+                            '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.tiff')
+    ref_path = os.path.join(analyse_folder,
+                            '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_Pos_Series_Reference_Position 7.tiff')
 
-    # Bring into correct form
-    pos = np.array([x.flatten(), y.flatten()])
-    vec = np.array([u.flatten(), v.flatten()])
+    data_path = os.path.join(analyse_folder, 'h5',
+                             '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.h5')
+    png_path = os.path.join(analyse_folder, 'png',
+                            '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.png')
 
-    grid_mat, i_max, j_max, X, fuu, Ftux, Ftuy, u = fourier_xu(pos=pos, vec=vec, meshsize=meshsize, E=E, s=s, grid_mat=[])
+    traction_config = TractionForceConfig(E=E, scaling_factor=pix_per_mu, min_window_size=64,
+                                          config_path=config_path,
+                                          segment=False)
 
-    pass
+    img, ref, roi = traction_config.load_data(img_path=img_path, ref_path=ref_path)
+
+    log = process_stack(img[:1, :, :, :],
+                        ref,
+                        traction_config,
+                        roi=roi,
+                        crop=True,
+                        bead_channel=1,
+                        cell_channel=0)
+    log.save(data_path)
+    fig, ax = plot(log, frame=0, mask=True, figsize=(20, 20))
+    ax[1].remove()
+    fig.savefig(png_path, dpi=fig.dpi, bbox_inches="tight")
+

@@ -24,11 +24,13 @@ def minus_logevidence(
     cluster_size,
     i_max,
     j_max,
+    kx,
+    ky
 ):
     aa = X.shape
     LL = alpha / beta
     _, _, _, _, Ftfx, Ftfy = reg_fourier_tfm(
-        Ftux, Ftuy, LL, E, s, cluster_size, i_max, j_max, slim=True
+        Ftux, Ftuy, kx, ky, LL, E, s, cluster_size, i_max, j_max, slim=True
     )
     fxx = Ftfx.reshape(i_max * j_max, 1)
     fyy = Ftfy.reshape(i_max * j_max, 1)
@@ -58,8 +60,18 @@ def minus_logevidence(
 
 
 def optimal_lambda(
-    beta, fuu, Ftux, Ftuy, E, s, cluster_size, i_max, j_max, X, sequence
+    beta, ftux, ftuy, kx, ky, E, s, cluster_size, i_max, j_max, X, sequence
 ):
+    # Reshaped into column vectors
+    fux1 = ftux.reshape(i_max * j_max, 1)
+    fux2 = ftuy.reshape(i_max * j_max, 1)
+
+    # Combine x- and y-Fourier components into a row with resulting dim(2 * i_max * j_max)
+    fuu = np.array([fux1, fux2]).T.flatten()
+
+    # Add additional dimension to array for further processing
+    fuu = np.expand_dims(fuu, axis=1)
+
     aa = X.shape
     c = np.ones((aa[1]))
     C = spdiags(c, (0), aa[1], aa[1])
@@ -81,13 +93,15 @@ def optimal_lambda(
         X=X,
         fuu=fuu,
         constant=constant,
-        Ftux=Ftux,
-        Ftuy=Ftuy,
+        Ftux=ftux,
+        Ftuy=ftuy,
         E=E,
         s=s,
         cluster_size=cluster_size,
         i_max=i_max,
         j_max=j_max,
+        kx = kx,
+        ky = ky
     )
     alpha_opt = optimize.fminbound(target, alpha1, alpha2, disp=3)
 
