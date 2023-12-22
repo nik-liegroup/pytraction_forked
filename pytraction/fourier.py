@@ -19,10 +19,9 @@ def fourier_xu(
     Returns the differential operator (X) acting on Fourier-transformed displacement fields, 2D Fourier transform
     components of displacement field (ftux, ftuy) and the fourier transformed displacement field u.
 
-    Input
     @param  u: Displacement field containing positions and vectors
-    @param  i_max
-    @param  j_max
+    @param  i_max:
+    @param  j_max:
     @param  E: Elastic modulus of substrate in Pa
     @param  s: Poisson's ratio of substrate
     @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
@@ -61,7 +60,7 @@ def fourier_xu(
     k = np.sqrt(kxx ** 2 + kyy ** 2)
 
     # Calculate fourier transform of Boussinesq solution (Green's function) given a point traction
-    conf = 2 * (1 + s) / (E * k ** 3)  # Normalization coefficient
+    conf = 2 * (1 + s) / (E * k ** 3)  # Define coefficient
 
     # Derive components of the Green's function matrix
     gf_xx = conf * ((1 - s) * k ** 2 + s * kyy ** 2)
@@ -111,89 +110,120 @@ def fourier_xu(
 
 
 def reg_fourier_tfm(
-    ftux,
-    ftuy,
-    kx,
-    ky,
-    L,
+    ftux: np.ndarray,
+    ftuy: np.ndarray,
+    kx: np.ndarray,
+    ky: np.ndarray,
+    L: float,
     E: float,
-    s,
-    cluster_size,
-    i_max,
-    j_max,
-    grid_mat=None,
-    pix_durch_my=None,
-    zdepth=None,
-    slim=False,
+    s: float,
+    meshsize: float,
+    i_max: int,
+    j_max: int,
+    scaling_factor: float = None,
+    zdepth: float = 0,
+    grid_mat: np.ndarray = [],
+    slim: bool = False,
 ):
     """
+    Maps the fourier transformed displacement field (ftux, ftux) via the Boussinesq Green's function to the respective
+    traction field and transforms the result back into the spatial domain.
 
+    @param  ftux: x-component of Fourier transformed displacement field
+    @param  ftuy: y-component of Fourier transformed displacement field
+    @param  kx: x-component wave vector 2D grid
+    @param  ky: y-component wave vector 2D grid
+    @param  L: Optimal lambda value
+    @param  E: Young's modulus of culture substrate in Pa
+    @param  s: Poisson's ratio of substrate
+    @param  meshsize: Specifies number of grid intervals to interpolate displacement field on
+    @param  i_max:
+    @param  j_max:
+    @param  scaling_factor: Pixels per micrometer
+    @param  zdepth:
+    @param  grid_mat:
+    @param  slim:
     """
+    # Define coefficient
+    v = 2 * (1 + s) / E
+    k = np.sqrt(kx ** 2 + ky ** 2)
 
-    V = 2 * (1 + s) / E
-    # shapes might be off here!
-
-    if slim:  # Slim output. Calculate only traction forces for the case z=0
+    # Slim output for optimal_lambda call: Calculate only traction forces for the case z=0
+    if slim:
+        # Derive components of the Green's function matrix
+        # ToDo: Check mathematical background
         Ginv_xx = (
-            (kx ** 2 + ky ** 2) ** (-1 / 2)
-            * V
-            * (kx ** 2 * L + ky ** 2 * L + V ** 2) ** (-1)
-            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * V ** 2) ** (-1)
+            k
+            * v
+            * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
+            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * v ** 2) ** (-1)
             * (
                 kx ** 4 * (L + (-1) * L * s)
                 + kx ** 2
-                * ((-1) * ky ** 2 * L * ((-2) + s) + (-1) * ((-1) + s) * V ** 2)
-                + ky ** 2 * (ky ** 2 * L + ((-1) + s) ** 2 * V ** 2)
+                * ((-1) * ky ** 2 * L * ((-2) + s) + (-1) * ((-1) + s) * v ** 2)
+                + ky ** 2 * (ky ** 2 * L + ((-1) + s) ** 2 * v ** 2)
             )
         )
+
         Ginv_yy = (
-            (kx ** 2 + ky ** 2) ** (-1 / 2)
-            * V
-            * (kx ** 2 * L + ky ** 2 * L + V ** 2) ** (-1)
-            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * V ** 2) ** (-1)
+            k
+            * v
+            * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
+            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * v ** 2) ** (-1)
             * (
                 kx ** 4 * L
-                + (-1) * ky ** 2 * ((-1) + s) * (ky ** 2 * L + V ** 2)
-                + kx ** 2 * ((-1) * ky ** 2 * L * ((-2) + s) + ((-1) + s) ** 2 * V ** 2)
+                + (-1) * ky ** 2 * ((-1) + s) * (ky ** 2 * L + v ** 2)
+                + kx ** 2 * ((-1) * ky ** 2 * L * ((-2) + s) + ((-1) + s) ** 2 * v ** 2)
             )
         )
+
         Ginv_xy = (
             (-1)
             * kx
             * ky
-            * (kx ** 2 + ky ** 2) ** (-1 / 2)
+            * k
             * s
-            * V
-            * (kx ** 2 * L + ky ** 2 * L + V ** 2) ** (-1)
-            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) * V ** 2)
-            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * V ** 2) ** (-1)
+            * v
+            * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
+            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) * v ** 2)
+            * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * v ** 2) ** (-1)
         )
 
+        # Set all zero frequency components in Green's function to zero
         Ginv_xx[0, 0] = 0
         Ginv_yy[0, 0] = 0
         Ginv_xy[0, 0] = 0
 
-        Ginv_xy[int(i_max / 2), :] = 0
-        Ginv_xy[:, int(j_max / 2)] = 0
-        Ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
-        Ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
+        # ToDo: Check if this is the correct approach (Set Ginv_xy for lowest frequencies to zero)
+        # Ginv_xy[int(i_max / 2), :] = 0
+        # Ginv_xy[:, int(j_max / 2)] = 0
 
-        # simply set variables that we do not need to calculate here to 0
+        # Calculate convolution of displacement field and Green's function in Fourier space
+        ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
+        ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
+
+        # Set unused variables to 0
         f_pos = 0
         f_nm_2 = 0
         f_magnitude = 0
         f_n_m = 0
 
-        return f_pos, f_nm_2, f_magnitude, f_n_m, Ftfx, Ftfy
+        return f_pos, f_nm_2, f_magnitude, f_n_m, ftfx, ftfy
 
-    else:  # full output, calculate traction forces with z>=0
-        z = zdepth / pix_durch_my
-        X = i_max * cluster_size / 2
-        Y = j_max * cluster_size / 2
+    # Full output: Calculate traction forces with z>=0
+    else:
+        # Get number of pixels in z-direction
+        z = zdepth / scaling_factor  # ToDo: Assumes same scaling factor for z as for x,y?
+
+        # Calculate center coordinates of x- and y-axis
+        X = i_max * meshsize / 2
+        Y = j_max * meshsize / 2
+
         if z == 0:
+            # Derive normalization factors for the forward Green's function matrix
             g0x = (
                 np.pi ** (-1)
-                * V
+                * v
                 * (
                     (-1) * Y * np.log((-1) * X + np.sqrt(X ** 2 + Y ** 2))
                     + Y * np.log(X + np.sqrt(X ** 2 + Y ** 2))
@@ -208,7 +238,7 @@ def reg_fourier_tfm(
 
             g0y = (
                 np.pi ** (-1)
-                * V
+                * v
                 * (
                     ((-1) + s)
                     * Y
@@ -225,9 +255,10 @@ def reg_fourier_tfm(
             )
 
         else:
+            # Derive normalization factors for the forward Green's function matrix
             g0x = (
                 np.pi ** (-1)
-                * V
+                * v
                 * (
                     ((-1) + 2 * s) * z * np.arctan(X ** (-1) * Y)
                     + (-2)
@@ -259,7 +290,7 @@ def reg_fourier_tfm(
             g0y = (
                 (-1)
                 * np.pi ** (-1)
-                * V
+                * v
                 * (
                     ((-1) + 2 * s) * z * np.arctan(X ** (-1) * Y)
                     + (3 + (-2) * s)
@@ -288,19 +319,20 @@ def reg_fourier_tfm(
                 )
             )
 
+        # Derive components of the Green's function matrix
         Ginv_xx = (
             np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
-            * (kx ** 2 + ky ** 2) ** (-1 / 2)
-            * V
+            * k
+            * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
-                + V ** 2
+                + v ** 2
             )
             ** (-1)
             * (
-                4 * ((-1) + s) * V ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
+                4 * ((-1) + s) * v ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
                 + (kx ** 2 + ky ** 2)
-                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + V ** 2 * z ** 2)
+                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + v ** 2 * z ** 2)
             )
             ** (-1)
             * (
@@ -312,7 +344,7 @@ def reg_fourier_tfm(
                     (-2) * ky ** 2
                     + kx ** 2 * ((-2) + 2 * s + np.sqrt(kx ** 2 + ky ** 2) * z)
                 )
-                + V ** 2
+                + v ** 2
                 * (
                     kx ** 2
                     * (
@@ -332,19 +364,20 @@ def reg_fourier_tfm(
                 )
             )
         )
+
         Ginv_yy = (
             np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
-            * (kx ** 2 + ky ** 2) ** (-1 / 2)
-            * V
+            * k
+            * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
-                + V ** 2
+                + v ** 2
             )
             ** (-1)
             * (
-                4 * ((-1) + s) * V ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
+                4 * ((-1) + s) * v ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
                 + (kx ** 2 + ky ** 2)
-                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + V ** 2 * z ** 2)
+                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + v ** 2 * z ** 2)
             )
             ** (-1)
             * (
@@ -356,7 +389,7 @@ def reg_fourier_tfm(
                     2 * kx ** 2
                     + (-1) * ky ** 2 * ((-2) + 2 * s + np.sqrt(kx ** 2 + ky ** 2) * z)
                 )
-                + V ** 2
+                + v ** 2
                 * (
                     kx ** 4 * z ** 2
                     + (-2) * ky ** 2 * ((-2) + 2 * s + np.sqrt(kx ** 2 + ky ** 2) * z)
@@ -371,16 +404,17 @@ def reg_fourier_tfm(
                 )
             )
         )
+
         Ginv_xy = (
             (-1)
             * np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
             * kx
             * ky
-            * (kx ** 2 + ky ** 2) ** (-1 / 2)
-            * V
+            * k
+            * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
-                + V ** 2
+                + v ** 2
             )
             ** (-1)
             * (
@@ -389,7 +423,7 @@ def reg_fourier_tfm(
                 * (kx ** 2 + ky ** 2)
                 * L
                 * (2 * s + np.sqrt(kx ** 2 + ky ** 2) * z)
-                + V ** 2
+                + v ** 2
                 * (
                     4 * ((-1) + s) * s
                     + (-2) * np.sqrt(kx ** 2 + ky ** 2) * z
@@ -398,9 +432,9 @@ def reg_fourier_tfm(
                 )
             )
             * (
-                4 * ((-1) + s) * V ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
+                4 * ((-1) + s) * v ** 2 * ((-1) + s + np.sqrt(kx ** 2 + ky ** 2) * z)
                 + (kx ** 2 + ky ** 2)
-                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + V ** 2 * z ** 2)
+                * (4 * np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * L + v ** 2 * z ** 2)
             )
             ** (-1)
         )
@@ -409,15 +443,20 @@ def reg_fourier_tfm(
         Ginv_yy[0, 0] = 1 / g0y
         Ginv_xy[0, 0] = 0
 
-        Ginv_xy[int(i_max // 2), :] = 0
-        Ginv_xy[:, int(j_max // 2)] = 0
+        # ToDo: Check if this is the correct approach (Set Ginv_xy for lowest frequencies to zero)
+        # Ginv_xy[int(i_max // 2), :] = 0
+        # Ginv_xy[:, int(j_max // 2)] = 0
 
-        Ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
-        Ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
+        # Calculate convolution of displacement field and Green's function in Fourier space
+        ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
+        ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
 
-        f_n_m = np.zeros(Ftfx.shape + (2,))
-        f_n_m[:, :, 0] = np.real(np.fft.ifft2(Ftfx))
-        f_n_m[:, :, 1] = np.real(np.fft.ifft2(Ftfy))
+        # Initialize array of dim (i_max, i_max, 2)
+        f_n_m = np.zeros(ftfx.shape + (2,))  # ToDo: Check what happens for i_max unequal i_max
+
+        # Compute inverse discrete Fourier transform of traction field and extract real part of complex number
+        f_n_m[:, :, 0] = np.real(np.fft.ifft2(ftfx))
+        f_n_m[:, :, 1] = np.real(np.fft.ifft2(ftfy))
 
         f_nm_2 = np.zeros((i_max * j_max, 2, 1))
         f_nm_2[:, 0] = f_n_m[:, :, 0].reshape(i_max * j_max, 1)
@@ -429,4 +468,4 @@ def reg_fourier_tfm(
 
         f_magnitude = np.sqrt(f_nm_2[:, 0] ** 2 + f_nm_2[:, 1] ** 2)
 
-    return f_pos, f_nm_2, f_magnitude, f_n_m, Ftfx, Ftfy
+    return f_pos, f_nm_2, f_magnitude, f_n_m, ftfx, ftfy

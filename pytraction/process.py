@@ -5,7 +5,7 @@ from openpiv import widim
 
 from pytraction.fourier import fourier_xu, reg_fourier_tfm
 from pytraction.optimal_lambda import optimal_lambda
-from pytraction.utils import align_slice, remove_boarder_from_aligned
+from pytraction.utils import align_slice, remove_boarder_from_aligned, interp_vec2grid
 
 
 def iterative_piv(img: np.ndarray,
@@ -69,23 +69,18 @@ def calculate_traction_map(pos: np.array,
     # Transform displacement field to fourier space
     ftux, ftuy, kxx, kyy, i_max, j_max, X = fourier_xu(u, i_max, j_max, E, s, meshsize)
 
-    # Calculate lambda from baysian model
+    # Calculate lambda from bayesian model
     L, evidencep, evidence_one = optimal_lambda(
-        beta, ftux, ftuy, kx, ky, E, s, meshsize, i_max, j_max, X, 1
+        beta, ftux, ftuy, kxx, kyy, E, s, meshsize, i_max, j_max, X, 1
     )
 
-    # Calculate traction field in fourier space and transfor back to spatial domain
-    pos, traction, traction_magnitude, f_n_m, _, _ = reg_fourier_tfm(
-        ftux, ftuy, kx, ky, L, E, s, meshsize, i_max, j_max, grid_mat, pix_per_mu, 0
+    # Calculate traction field in fourier space and transform back to spatial domain
+    f_pos, f_nm_2, f_magnitude, f_n_m, ftfx, ftfy = reg_fourier_tfm(
+        ftux, ftuy, kxx, kyy, L, E, s, meshsize, i_max, j_max, pix_per_mu, 0, grid_mat
     )
-
-    # rescale traction with proper Young's modulus
-    traction = E * traction
-    traction_magnitude = E * traction_magnitude
-    f_n_m = E * f_n_m
 
     # off with the shapes flip back into position
-    traction_magnitude = traction_magnitude.reshape(i_max, j_max).T
+    traction_magnitude = f_magnitude.reshape(i_max, j_max).T
     traction_magnitude = np.flip(traction_magnitude, axis=0)
 
     # Calculate inner product of traction (f_n_m or traction) and displacement (u) fields
