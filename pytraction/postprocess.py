@@ -1,5 +1,6 @@
 from scipy.integrate import simps
 import numpy as np
+from sympy import *
 
 
 def strain_energy(
@@ -21,32 +22,43 @@ def strain_energy(
     y = yy[:, 0].reshape(1, -1).flatten()
 
     # Integrate energy density over whole domain
-    energy = 0.5 * simps(simps(energy_dens, x), y)
+    energy = 0.5 * simps(simps(energy_dens, y), x)
 
     return energy
 
 
 def contraction_moments(
-        xx: np.ndarray,
-        yy: np.ndarray,
         ftfx: np.ndarray,
         ftfy: np.ndarray,
         kxx: np.ndarray,
-        kyy: np.ndarray,
-        i: int = 2,
+        kyy: np.ndarray
 ):
     """
     Calculate the contraction moments in linear approximation in Fourier space.
     """
-    # Flatten vectors to define integration intervals spaced accordingly to grid
-    x = xx[0, :].reshape(1, -1).flatten()
-    y = yy[:, 0].reshape(1, -1).flatten()
+    # Flatten second respective row and column of wave vectors to avoid value 1 in [0, 0]
+    kx = kxx[:, 1].reshape(1, -1).flatten()
+    ky = kyy[1, :].reshape(1, -1).flatten()
+
+    # Get index of first non-zero element in wave vectors
+    ind_kx = (kx != 0).argmax(axis=0)
+    ind_ky = (ky != 0).argmax(axis=0)
 
     # ToDo: Check math!
     # Calculate components of contraction moment matrix
-    m_xx = -(x/2) * (ftfx[1, i] + ftfx[1, i]) / (np.sqrt(kxx[1, i] ** 2 + kxx[1, i] ** 2))
-    m_yy = -(y/2) * (ftfy[i, 1] + ftfy[i, 1]) / (np.sqrt(kyy[i, 1] ** 2 + kyy[i, 1] ** 2))
-    m_xy = -(x/2) * (ftfy[1, i] + ftfx[i, 1]) / (np.sqrt(kxx[i, 1] ** 2 + kyy[1, i] ** 2))
-    m_yx = -(y/2) * (ftfx[i, 1] + ftfy[1, i]) / (np.sqrt(kxx[i, 1] ** 2 + kyy[1, i] ** 2))
+    m_xx = (- 0.5 * complex(0, 1)
+            * (ftfx[1, ind_kx] + ftfx[1, ind_kx]) / (np.sqrt(kxx[1, ind_kx] ** 2 + kxx[1, ind_kx] ** 2)))
+    m_yy = (- 0.5 * complex(0, 1)
+            * (ftfy[ind_ky, 1] + ftfy[ind_ky, 1]) / (np.sqrt(kyy[ind_ky, 1] ** 2 + kyy[ind_ky, 1] ** 2)))
+    m_xy = (- 0.5 * complex(0, 1)
+            * (ftfy[ind_kx, 1] + ftfx[1, ind_ky]) / (np.sqrt(kxx[1, ind_ky] ** 2 + kyy[ind_kx, 1] ** 2)))
+    m_yx = (- 0.5 * complex(0, 1)
+            * (ftfx[1, ind_ky] + ftfy[ind_kx, 1]) / (np.sqrt(kxx[1, ind_ky] ** 2 + kyy[ind_kx, 1] ** 2)))
+
+    m_xx, m_yy, m_xy, m_yx = abs(m_xx), abs(m_yy), abs(m_xy), abs(m_yx)
+
+    contr_mat = Matrix([[m_xx, m_xy], [m_yx, m_yy]])
+
+    trans_mat, contr_mat_diag = contr_mat.diagonalize()
 
     return m_xx, m_yy, m_xy, m_yx

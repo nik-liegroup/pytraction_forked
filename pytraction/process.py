@@ -93,11 +93,9 @@ def calculate_traction_map(pos: np.array,
     tyy = f_n_m[:, :, 1]
 
     # Calculate strain energy
-    #energy = strain_energy(xx, yy, txx, tyy, uxx, uyy)
+    energy = strain_energy(xx, yy, txx, tyy, uxx, uyy)
 
-    m_xx, m_yy, m_xy, m_yx = contraction_moments(xx, yy, ftfx, ftfy, kxx, kyy)
-
-    #print(energy)
-    print(m_xx, m_yy, m_xy, m_yx)
+    m_xx, m_yy, m_xy, m_yx = contraction_moments(ftfx, ftfy, kxx, kyy)
+    moments = [m_xx, m_yy, m_xy, m_yx]
 
     return traction_magnitude, f_n_m, energy, moments, L
