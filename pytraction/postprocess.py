@@ -1,6 +1,5 @@
 from scipy.integrate import simps
 import numpy as np
-from sympy import *
 
 
 def strain_energy(
@@ -9,7 +8,8 @@ def strain_energy(
         txx: np.ndarray,
         tyy: np.ndarray,
         uxx: np.ndarray,
-        uyy: np.ndarray
+        uyy: np.ndarray,
+        pix_per_mu: float
 ):
     """
     Calculates strain energy of the displacement and traction field in the spatial domain.
@@ -23,6 +23,9 @@ def strain_energy(
 
     # Integrate energy density over whole domain
     energy = 0.5 * simps(simps(energy_dens, y), x)
+
+    # Scale to pico Joule (pNm) units
+    energy = energy * 10 ** (-6) / pix_per_mu ** 3
 
     return energy
 
@@ -55,10 +58,20 @@ def contraction_moments(
     m_yx = (- 0.5 * complex(0, 1)
             * (ftfx[1, ind_ky] + ftfy[ind_kx, 1]) / (np.sqrt(kxx[1, ind_ky] ** 2 + kyy[ind_kx, 1] ** 2)))
 
+    # Calculate absolute value of components and combine into matrix
     m_xx, m_yy, m_xy, m_yx = abs(m_xx), abs(m_yy), abs(m_xy), abs(m_yx)
 
-    contr_mat = Matrix([[m_xx, m_xy], [m_yx, m_yy]])
+    # Angle of rotation between image coordinate system and principal axes of diagonalized matrix
+    theta = 0.5 * np.arctan(2 * m_xy / (m_xx - m_yy))
 
-    trans_mat, contr_mat_diag = contr_mat.diagonalize()
+    M = np.array([[m_xx, m_xy],
+                  [m_yx, m_yy]])
+    R = np.array([[np.cos(theta), -np.sin(theta)],
+                  [np.sin(theta), np.cos(theta)]])
 
-    return m_xx, m_yy, m_xy, m_yx
+    D = np.matmul(R.T, np.matmul(M, R))
+
+    d_xx = D[0, 0]
+    d_yy = D[1, 1]
+
+    return d_xx, d_yy, theta

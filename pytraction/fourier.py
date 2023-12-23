@@ -52,12 +52,9 @@ def fourier_xu(
     # Creates rectangular grid from every combination of provided kx and ky coordinates
     kxx, kyy = np.meshgrid(kx_vec, ky_vec, indexing='ij')  # kx and ky are both 2D matrices
 
-    # Set zero frequency components to arbitrary value to avoid division by zero
-    kxx[0, 0] = 1
-    kyy[0, 0] = 1
-
     # Calculate the wave vectors magnitudes
     k = np.sqrt(kxx ** 2 + kyy ** 2)
+    k[0, 0] = 1
 
     # Calculate fourier transform of Boussinesq solution (Green's function) given a point traction
     conf = 2 * (1 + s) / (E * k ** 3)  # Define coefficient
@@ -146,7 +143,10 @@ def reg_fourier_tfm(
     """
     # Define coefficient
     v = 2 * (1 + s) / E
-    k_inv = np.sqrt(kx ** 2 + ky ** 2) ** (-1)
+    k = np.sqrt(kx ** 2 + ky ** 2)
+    k[0, 0] = 1
+
+    k_inv = k ** (-1)
 
     # Slim output for optimal_lambda call: Calculate only traction forces for the case z=0
     if slim:
