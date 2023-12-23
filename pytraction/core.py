@@ -449,7 +449,7 @@ def process_stack(
             vec = np.array([u.flatten(), v.flatten()])
 
             # Compute traction map, force field, and L_optimal
-            traction_map, f_n_m, l_optimal = calculate_traction_map(
+            traction_map, f_n_m, strain_energy, l_optimal = calculate_traction_map(
                 pos,
                 vec,
                 beta,

@@ -50,7 +50,7 @@ def fourier_xu(
     )
 
     # Creates rectangular grid from every combination of provided kx and ky coordinates
-    kxx, kyy = np.meshgrid(kx_vec, ky_vec)  # kx and ky are both 2D matrices
+    kxx, kyy = np.meshgrid(kx_vec, ky_vec, indexing='ij')  # kx and ky are both 2D matrices
 
     # Set zero frequency components to arbitrary value to avoid division by zero
     kxx[0, 0] = 1
@@ -146,14 +146,14 @@ def reg_fourier_tfm(
     """
     # Define coefficient
     v = 2 * (1 + s) / E
-    k = np.sqrt(kx ** 2 + ky ** 2)
+    k_inv = np.sqrt(kx ** 2 + ky ** 2) ** (-1)
 
     # Slim output for optimal_lambda call: Calculate only traction forces for the case z=0
     if slim:
         # Derive components of the Green's function matrix
         # ToDo: Check mathematical background
         Ginv_xx = (
-            k
+            k_inv
             * v
             * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
             * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * v ** 2) ** (-1)
@@ -166,7 +166,7 @@ def reg_fourier_tfm(
         )
 
         Ginv_yy = (
-            k
+            k_inv
             * v
             * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
             * (kx ** 2 * L + ky ** 2 * L + ((-1) + s) ** 2 * v ** 2) ** (-1)
@@ -181,7 +181,7 @@ def reg_fourier_tfm(
             (-1)
             * kx
             * ky
-            * k
+            * k_inv
             * s
             * v
             * (kx ** 2 * L + ky ** 2 * L + v ** 2) ** (-1)
@@ -322,7 +322,7 @@ def reg_fourier_tfm(
         # Derive components of the Green's function matrix
         Ginv_xx = (
             np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
-            * k
+            * k_inv
             * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
@@ -367,7 +367,7 @@ def reg_fourier_tfm(
 
         Ginv_yy = (
             np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
-            * k
+            * k_inv
             * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
@@ -410,7 +410,7 @@ def reg_fourier_tfm(
             * np.exp(np.sqrt(kx ** 2 + ky ** 2) * z)
             * kx
             * ky
-            * k
+            * k_inv
             * v
             * (
                 np.exp(2 * np.sqrt(kx ** 2 + ky ** 2) * z) * (kx ** 2 + ky ** 2) * L
