@@ -6,7 +6,7 @@ from openpiv import widim
 from pytraction.fourier import fourier_xu, reg_fourier_tfm
 from pytraction.optimal_lambda import optimal_lambda
 from pytraction.utils import align_slice, remove_boarder_from_aligned, interp_vec2grid
-from pytraction.postprocess import strain_energy
+from pytraction.postprocess import strain_energy, contraction_moments
 
 
 def iterative_piv(img: np.ndarray,
@@ -93,6 +93,11 @@ def calculate_traction_map(pos: np.array,
     tyy = f_n_m[:, :, 1]
 
     # Calculate strain energy
-    strain_energy(xx, yy, txx, tyy, uxx, uyy)
+    #energy = strain_energy(xx, yy, txx, tyy, uxx, uyy)
 
-    return traction_magnitude, f_n_m, strain_energy, L
+    m_xx, m_yy, m_xy, m_yx = contraction_moments(xx, yy, ftfx, ftfy, kxx, kyy)
+
+    #print(energy)
+    print(m_xx, m_yy, m_xy, m_yx)
+
+    return traction_magnitude, f_n_m, energy, moments, L

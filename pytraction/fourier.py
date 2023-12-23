@@ -451,6 +451,10 @@ def reg_fourier_tfm(
         ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
         ftfy = Ginv_xy * ftux + Ginv_yy * ftuy
 
+        # Avoid non-zero net force induced by spurious traction field
+        ftfx[0, 0] = 0
+        ftfy[0, 0] = 0
+
         # Initialize array of dim (i_max, i_max, 2)
         f_n_m = np.zeros(ftfx.shape + (2,))  # ToDo: Check what happens for i_max unequal i_max
 

@@ -25,7 +25,7 @@ def t_fourier_xu():
                                           config_path=config_path,
                                           segment=False)
 
-    img, ref, roi = traction_config.load_data(img_path=img_path, ref_path=ref_path)
+    img, ref, roi = traction_config.load_data(img_path=img_path, ref_path=ref_path, roi_path=roi_path)
 
     log = process_stack(img[:1, :, :, :],
                         ref,
