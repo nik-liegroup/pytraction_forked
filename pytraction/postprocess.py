@@ -30,42 +30,83 @@ def strain_energy(
     return energy
 
 
-def contraction_moments(
+def contraction_moments_ft(
         ftfx: np.ndarray,
         ftfy: np.ndarray,
         kxx: np.ndarray,
-        kyy: np.ndarray
+        kyy: np.ndarray,
+        pix_per_mu: float
 ):
     """
     Calculate the contraction moments in linear approximation in Fourier space.
     """
-    # Flatten second respective row and column of wave vectors to avoid value 1 in [0, 0]
-    kx = kxx[:, 1].reshape(1, -1).flatten()
-    ky = kyy[1, :].reshape(1, -1).flatten()
+    # Flatten respective row and column of wave vectors
+    kxx = kxx.T
+    kyy = kyy.T
+
+    kx = kxx[0, :].reshape(1, -1).flatten()
+    ky = kyy[:, 0].reshape(1, -1).flatten()
 
     # Get index of first non-zero element in wave vectors
     ind_kx = (kx != 0).argmax(axis=0)
     ind_ky = (ky != 0).argmax(axis=0)
 
     # ToDo: Check math!
-    # Calculate components of contraction moment matrix
-    m_xx = (- 0.5 * complex(0, 1)
-            * (ftfx[1, ind_kx] + ftfx[1, ind_kx]) / (np.sqrt(kxx[1, ind_kx] ** 2 + kxx[1, ind_kx] ** 2)))
-    m_yy = (- 0.5 * complex(0, 1)
-            * (ftfy[ind_ky, 1] + ftfy[ind_ky, 1]) / (np.sqrt(kyy[ind_ky, 1] ** 2 + kyy[ind_ky, 1] ** 2)))
-    m_xy = (- 0.5 * complex(0, 1)
-            * (ftfy[ind_kx, 1] + ftfx[1, ind_ky]) / (np.sqrt(kxx[1, ind_ky] ** 2 + kyy[ind_kx, 1] ** 2)))
-    m_yx = (- 0.5 * complex(0, 1)
-            * (ftfx[1, ind_ky] + ftfy[ind_kx, 1]) / (np.sqrt(kxx[1, ind_ky] ** 2 + kyy[ind_kx, 1] ** 2)))
+    # Calculate components of contraction moment matrix in Fourier space
+    m_xx = (- 0.5 * complex(0, 1) * 10 ** (-6) / pix_per_mu ** 3
+            * (ftfx[0, ind_kx] + ftfx[0, ind_kx]) / (np.sqrt(kxx[0, ind_kx] ** 2 + kxx[0, ind_kx] ** 2)))
+    m_yy = (- 0.5 * complex(0, 1) * 10 ** (-6) / pix_per_mu ** 3
+            * (ftfy[ind_ky, 0] + ftfy[ind_ky, 0]) / (np.sqrt(kyy[ind_ky, 0] ** 2 + kyy[ind_ky, 0] ** 2)))
+    m_xy = (- 0.5 * complex(0, 1) * 10 ** (-6) / pix_per_mu ** 3
+            * (ftfy[ind_kx, 0] + ftfx[0, ind_ky]) / (np.sqrt(kxx[0, ind_ky] ** 2 + kyy[ind_kx, 0] ** 2)))
 
     # Calculate absolute value of components and combine into matrix
-    m_xx, m_yy, m_xy, m_yx = abs(m_xx), abs(m_yy), abs(m_xy), abs(m_yx)
+    m_xx, m_yy, m_xy = abs(m_xx), abs(m_yy), abs(m_xy)
 
     # Angle of rotation between image coordinate system and principal axes of diagonalized matrix
     theta = 0.5 * np.arctan(2 * m_xy / (m_xx - m_yy))
 
     M = np.array([[m_xx, m_xy],
-                  [m_yx, m_yy]])
+                  [m_xy, m_yy]])
+    R = np.array([[np.cos(theta), -np.sin(theta)],
+                  [np.sin(theta), np.cos(theta)]])
+
+    D = np.matmul(R.T, np.matmul(M, R))
+
+    d_xx = D[0, 0]
+    d_yy = D[1, 1]
+
+    return d_xx, d_yy, theta
+
+
+def contraction_moments(
+        xx: np.ndarray,
+        yy: np.ndarray,
+        txx: np.ndarray,
+        tyy: np.ndarray,
+        pix_per_mu: float
+):
+    """
+    Calculate the contraction moments in linear approximation in Fourier space.
+    """
+    # Flatten vectors to define integration intervals spaced accordingly to grid
+    x = xx[0, :].reshape(1, -1).flatten()
+    y = yy[:, 0].reshape(1, -1).flatten()
+
+    # ToDo: Check math!
+    # Calculate components of contraction moment matrix in integral form
+    m_xx = 0.5 * simps(simps(xx * txx.T + xx * txx.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
+    m_yy = 0.5 * simps(simps(yy * tyy.T + yy * tyy.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
+    m_xy = 0.5 * simps(simps(xx * tyy.T + yy * txx.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
+
+    # Calculate absolute value of components and combine into matrix
+    m_xx, m_yy, m_xy = abs(m_xx), abs(m_yy), abs(m_xy)
+
+    # Angle of rotation between image coordinate system and principal axes of diagonalized matrix
+    theta = 0.5 * np.arctan(2 * m_xy / (m_xx - m_yy))
+
+    M = np.array([[m_xx, m_xy],
+                  [m_xy, m_yy]])
     R = np.array([[np.cos(theta), -np.sin(theta)],
                   [np.sin(theta), np.cos(theta)]])
 

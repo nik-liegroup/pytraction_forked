@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.sparse import spdiags
-from pytraction.utils import interp_vec2grid
 
 
 def fourier_xu(

@@ -70,7 +70,7 @@ def sparse_cholesky(A):
 def interp_vec2grid(
         pos: np.ndarray,
         vec: np.ndarray,
-        meshsize: int,
+        meshsize: float,
         grid_mat=np.array([])
 ) -> Tuple[np.ndarray, np.ndarray, int, int]:
     """
