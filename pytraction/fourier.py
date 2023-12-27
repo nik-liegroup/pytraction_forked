@@ -80,12 +80,12 @@ def fourier_xu(
     # Create zero filled matrix in the shape of g3
     g4 = np.zeros(g3.shape)
 
-    # Concatenate and transposing g1 & g2 along first axis resulting in array of dim(i_max * j_max, 2) and flatten by
+    # Concatenate and transposing g1 & g2 along first axis resulting in array of dim(i_max * j_max, 1) and flatten by
     # concatenating rows
     x1 = np.array([g1, g2]).T.flatten()
     x2 = np.array([g3, g4]).T.flatten()
 
-    # Adds a new axis to get array with dim(i_max * j_max * 2, 1)
+    # Transpose and add dummy dimension to get array with dim(i_max * j_max * 2, 1)
     x1 = np.expand_dims(x1, axis=1)
     x2 = np.expand_dims(x2, axis=1)
 
@@ -136,7 +136,7 @@ def reg_fourier_tfm(
     @param  i_max:
     @param  j_max:
     @param  scaling_factor: Pixels per micrometer
-    @param  zdepth:
+    @param  zdepth: Distance between gel surface and imaging plane (Must be a positive number)
     @param  grid_mat:
     @param  slim:
     """

@@ -95,9 +95,9 @@ def contraction_moments(
 
     # ToDo: Check math!
     # Calculate components of contraction moment matrix in integral form
-    m_xx = 0.5 * simps(simps(xx * txx.T + xx * txx.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
-    m_yy = 0.5 * simps(simps(yy * tyy.T + yy * tyy.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
-    m_xy = 0.5 * simps(simps(xx * tyy.T + yy * txx.T, x), y) * 10 ** (-6) / pix_per_mu ** 3
+    m_xx = 0.5 * simps(simps(xx * txx + xx * txx, x), y) * 10 ** (-6) / pix_per_mu ** 3
+    m_yy = 0.5 * simps(simps(yy * tyy + yy * tyy, x), y) * 10 ** (-6) / pix_per_mu ** 3
+    m_xy = 0.5 * simps(simps(xx * tyy + yy * txx, x), y) * 10 ** (-6) / pix_per_mu ** 3
 
     # Calculate absolute value of components and combine into matrix
     m_xx, m_yy, m_xy = abs(m_xx), abs(m_yy), abs(m_xy)
