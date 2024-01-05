@@ -2,36 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pytraction.postprocess import *
 from typing import Callable
-
-
-# Define tri-pole vector field component functions
-def L_x(x_p, y_p):
-    lx = (np.exp(-((x_p + x0) ** 2 + (y_p + y0) ** 2) / (sigma ** 2)) -
-          np.exp(-((x_p - x0) ** 2 + (y_p - y0) ** 2) / (sigma ** 2)) +
-          np.exp(-((x_p - x0) ** 2 + (y_p + y0) ** 2) / (sigma ** 2)))
-    return lx
-
-
-def L_y(x_p, y_p):
-    ly = (np.exp(-((x_p + x0) ** 2 + (y_p + y0) ** 2) / (sigma ** 2)) -
-          np.exp(-((x_p - x0) ** 2 + (y_p - y0) ** 2) / (sigma ** 2)) -
-          np.exp(-((x_p - x0) ** 2 + (y_p + y0) ** 2) / (sigma ** 2)))
-    return ly
-
-
-# Define tri-pole vector field
-def tripole(x_p, y_p):
-    # Vector field component functions
-    lx = L_x(x_p, y_p)
-    ly = L_y(x_p, y_p)
-
-    # Remove small values to avoid division by 0
-    lx_norm = np.where((lx < 0.01) & (lx > - 0.01), np.nan, lx)
-    ly_norm = np.where((ly < 0.01) & (ly > - 0.01), np.nan, ly)
-
-    # Calculate normalization coefficients
-    l_norm = np.sqrt(lx_norm ** 2 + ly_norm ** 2)
-    return lx, ly, l_norm
+from tests.prelim_code.tst_utilis import *
 
 
 # Define forward kernel component functions to calculate displacement field
@@ -119,23 +90,6 @@ def integrandKyy(x, y, x_p, y_p, x_k, y_k):
     return intrg
 
 
-def matrix_map(matrix, vec):
-    # Get dimension of NxM matrix
-    n = matrix.shape[0]
-    m = matrix.shape[1]
-    # Create output vector of length n
-    result = np.empty((n, 1))
-    # Check if input vector has correct dimension
-    if vec.shape[0] != m:
-        raise ValueError(f'Vector should be of dimension {m} but has dimension {vec.shape[0]}')
-    else:
-        for i in range(n):
-            for j in range(m):
-                result[i] += matrix[i][j] * vec[j]
-
-    return result
-
-
 # Define parameters
 point_dens = 10
 w = 20
@@ -188,7 +142,7 @@ for i, x_k_i in enumerate(x_k_val):
 
 # Analytic definition of displacement field
 xx, yy = np.meshgrid(x_val, y_val)
-ux, uy, u_norm = tripole(x_val, y_val)
+ux, uy, u_norm = tri_pole(x_val, y_val, x0, y0, sigma)
 
 u_glob = np.array([val for pair in zip(ux, uy) for val in pair])
 u_glob = u_glob.reshape(2 * point_dens, 1)

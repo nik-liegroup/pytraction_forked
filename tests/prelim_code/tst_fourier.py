@@ -4,6 +4,7 @@ from pytraction.fourier import fourier_xu, reg_fourier_tfm
 from pytraction.optimal_lambda import optimal_lambda
 from pytraction.utils import interp_vec2grid
 from pytraction.postprocess import *
+from tests.prelim_code.tst_utilis import *
 
 # Define parameters
 point_dens = 20
@@ -29,47 +30,6 @@ def G_y(x_p, y_p, x0, y0):
           np.exp(-((x_p - x0) ** 2 + (y_p - y0) ** 2) / (sigma ** 2)) -
           np.exp(-((x_p - x0) ** 2 + (y_p + y0) ** 2) / (sigma ** 2)))
     return gy
-
-
-# Define tri-pole vector field
-def tripole(x_p, y_p, x0, y0):
-    # Vector field component functions
-    gx = G_x(x_p, y_p, x0, y0)
-    gy = G_y(x_p, y_p, x0, y0)
-
-    # Remove small values to avoid division by 0
-    gx_norm = np.where((gx < 0.01) & (gx > - 0.01), np.nan, gx)
-    gy_norm = np.where((gy < 0.01) & (gy > - 0.01), np.nan, gy)
-
-    # Calculate normalization coefficients
-    g_norm = np.sqrt(gx_norm ** 2 + gy_norm ** 2)
-    return gx, gy, g_norm
-
-
-# Define vortex vector field component functions
-def V_x(x_p, y_p, x0, y0):
-    r1 = np.sqrt((x_p - x0) ** 2 + (y_p - y0) ** 2)
-    r2 = np.sqrt((x_p + x0) ** 2 + (y_p + y0) ** 2)
-    vx = - (y_p - y0) / np.exp(0.3 * r1) + (y_p + y0) / np.exp(0.3 * r2)
-    return vx
-
-
-def V_y(x_p, y_p, x0, y0):
-    r1 = np.sqrt((x_p - x0) ** 2 + (y_p - y0) ** 2)
-    r2 = np.sqrt((x_p + x0) ** 2 + (y_p + y0) ** 2)
-    vy = (x_p - x0) / np.exp(0.3 * r1) - (x_p + x0) / np.exp(0.3 * r2)
-    return vy
-
-
-# Define vortex vector field
-def vortex(x_p, y_p, x0, y0):
-    # Vector field component functions
-    vx = V_x(x_p, y_p, x0, y0)
-    vy = V_y(x_p, y_p, x0, y0)
-
-    # Calculate normalization coefficients
-    v_norm = np.sqrt(vx ** 2 + vy ** 2)
-    return vx, vy, v_norm
 
 
 # Define forward kernel component functions to calculate displacement field
