@@ -58,20 +58,26 @@ def vortex(x_p, y_p, x0, y0):
     return vx, vy, v_norm
 
 
-# 2D box function with width w, centered around (0,0)
-def boxcar2dim(x, y, w_x, w_y):
-    return np.where((np.abs(x) <= w_x / 2) & (np.abs(y) <= w_y / 2), 1, 0)
+# 2D box function with width_x and width_y centered around (0,0)
+def boxcar2dim(xx, yy, width_x, width_y):
+    return np.where((np.abs(xx) <= width_x / 2) &
+                    (np.abs(yy) <= width_y / 2), 1, 0)
+
+
+def boxcar2dim_ft(kxx, kyy, width_x, width_y):
+    return (width_x * np.sinc(kxx * width_x) *
+            width_y * np.sinc(kyy * width_y))
 
 
 # Shape function for boundary element method
-def pyramid2dim(x, y, w_x, w_y):
-    result = np.maximum(0, w_x - np.abs(x)) * np.maximum(0, w_y - np.abs(y))
-    return result
+def pyramid2dim(xx, yy, width_x, width_y):
+    return (np.maximum(0, width_x - np.abs(xx)) *
+            np.maximum(0, width_y - np.abs(yy)))
 
 
-def pyramid2dim_ft(kx, ky, w_x, w_y):
-    result = (w_x * np.sinc(kx * w_x) * w_y * np.sinc(ky * w_y)) ** 2
-    return result
+def pyramid2dim_ft(kxx, kyy, width_x, width_y):
+    return (width_x * np.sinc(kxx * width_x) *
+            width_y * np.sinc(kyy * width_y)) ** 2
 
 
 # Define forward kernel component functions
@@ -84,21 +90,6 @@ def kernel_real(x, y, s, elastic_modul):
     return np.nan_to_num(gxx), np.nan_to_num(gxy), np.nan_to_num(gyy)
 
 
-def kernel_real_xx(x, y, s, elastic_modul):
-    gxx, _, _ = kernel_real(x, y, s, elastic_modul)
-    return gxx
-
-
-def kernel_real_xy(x, y, s, elastic_modul):
-    _, gxy, _ = kernel_real(x, y, s, elastic_modul)
-    return gxy
-
-
-def kernel_real_yy(x, y, s, elastic_modul):
-    _, _, gyy = kernel_real(x, y, s, elastic_modul)
-    return gyy
-
-
 # Define forward kernel component functions in fourier space
 def kernel_ft(k_x, k_y, s, elastic_modul):
     coeff = 2 * (1 + s) / elastic_modul
@@ -107,24 +98,6 @@ def kernel_ft(k_x, k_y, s, elastic_modul):
     gyy = coeff * ((1 - s) / k + s * k_x ** 2 / k ** 3)
     gxy = coeff * (s * k_x * k_y / k ** 3)
     return np.nan_to_num(gxx), np.nan_to_num(gxy), np.nan_to_num(gyy)
-
-
-# Map vector between vector spaces
-def matrix_map(matrix, vec):
-    # Get dimension of NxM matrix
-    n = matrix.shape[0]
-    m = matrix.shape[1]
-    # Create output vector of length n
-    result = np.empty((n, 1))
-    # Check if input vector has correct dimension
-    if vec.shape[0] != m:
-        raise ValueError(f'Vector should be of dimension {m} but has dimension {vec.shape[0]}')
-    else:
-        for i in range(n):
-            for j in range(m):
-                result[i] += matrix[i][j] * vec[j]
-
-    return result
 
 
 # Center 2D array to remove padding
