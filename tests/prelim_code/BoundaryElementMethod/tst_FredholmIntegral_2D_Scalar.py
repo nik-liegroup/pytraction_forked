@@ -17,8 +17,8 @@ int_den_x = len(x_val) / (x_val[-1] - x_val[0])
 int_den_y = len(y_val) / (y_val[-1] - y_val[0])
 
 # Set box width
-width_x = 2
-width_y = 2
+width_x = 4
+width_y = 4
 
 # Define empty array to store convolution results
 gamma_glob = np.zeros((point_dens ** 2, point_dens ** 2))
@@ -39,11 +39,11 @@ for i, x_k in enumerate(x_val):
 # Invert BEM matrix
 gamma_glob_inv = scipy.linalg.inv(gamma_glob)
 
-# Define forward Fredholm term u(x, y) on left side of integral equation
+# Define forward Fredholm term f(x, y) under integral
 forward_glob = boxcar2dim(xx, yy, width_x, width_y)
 forward_glob = forward_glob.reshape(point_dens ** 2, 1)
 
-# Define inverse Fredholm term f(x, y) under integral
+# Define inverse Fredholm term u(x,y) on left side of integral equation
 inverse_glob = pyramid2dim(xx, yy, width_x, width_y)
 inverse_glob = inverse_glob.reshape(point_dens ** 2, 1)
 
