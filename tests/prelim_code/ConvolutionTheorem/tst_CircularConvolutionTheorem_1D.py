@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from scipy.fft import *
 from tests.prelim_code.tst_utilis import *
+from tests.prelim_code.tst_example_fields import *
 
 
 # Create grid of points in spatial and fourier coordinates

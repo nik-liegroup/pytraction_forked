@@ -4,10 +4,11 @@ import scipy.linalg
 from scipy.signal import convolve
 from scipy.fft import *
 from tests.prelim_code.tst_utilis import *
+from tests.prelim_code.tst_example_fields import *
 
 
 # Create grid of points in spatial coordinates
-point_dens = 50
+point_dens = 30
 x_val, y_val = np.linspace(-10, 10, point_dens), np.linspace(-10, 10, point_dens)
 xx, yy = np.meshgrid(x_val, y_val)
 meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]

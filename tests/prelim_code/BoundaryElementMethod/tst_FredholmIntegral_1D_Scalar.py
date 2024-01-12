@@ -4,6 +4,7 @@ import scipy.linalg
 from scipy.signal import convolve
 from scipy.fft import *
 from tests.prelim_code.tst_utilis import *
+from tests.prelim_code.tst_example_fields import *
 
 
 # Define Fredholm integral function
