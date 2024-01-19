@@ -28,6 +28,8 @@ def kernel_real(x, y, s, elastic_modul):
 def kernel_ft(k_x, k_y, s, elastic_modul):
     coeff = 2 * (1 + s) / elastic_modul
     k = np.sqrt(k_x ** 2 + k_y ** 2)
+    k[0, 0] = 1
+
     gxx = coeff * ((1 - s) / k + s * k_y ** 2 / k ** 3)
     gyy = coeff * ((1 - s) / k + s * k_x ** 2 / k ** 3)
     gxy = coeff * (s * k_x * k_y / k ** 3)

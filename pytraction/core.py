@@ -335,6 +335,8 @@ def _write_frame_results(
         L_optimal: float,
         pos: np.ndarray,
         vec: np.ndarray,
+        txx: np.ndarray,
+        tyy: np.ndarray
 ) -> type(h5py.File):
     """
     Function to write frame-specific results to an HDF5 file.
@@ -362,6 +364,8 @@ def _write_frame_results(
     results[f"L/{frame}"] = L_optimal
     results[f"pos/{frame}"] = pos
     results[f"vec/{frame}"] = vec
+    results[f"txx/{frame}"] = txx
+    results[f"tyy/{frame}"] = tyy
     return results
 
 
@@ -449,7 +453,7 @@ def process_stack(
             vec = np.array([u.flatten(), v.flatten()])
 
             # Compute traction map, force field, and L_optimal
-            traction_map, f_n_m, strain_energy, d_xx, d_yy, theta, l_optimal = calculate_traction_map(
+            traction_map, f_n_m, strain_energy, l_optimal, txx, tyy = calculate_traction_map(
                 pos,
                 vec,
                 beta,
@@ -472,6 +476,8 @@ def process_stack(
                 l_optimal,
                 pos,
                 vec,
+                txx,
+                tyy
             )
 
         # Write metadata to the results file

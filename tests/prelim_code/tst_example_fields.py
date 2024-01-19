@@ -32,25 +32,26 @@ def tri_pole(x_p, y_p, x0, y0, sigma):
 
 
 # Define vortex vector field component functions
-def vortex_x(x_p, y_p, x0, y0):
+def vortex_x(x_p, y_p, x0, y0, alpha):
     r1 = np.sqrt((x_p - x0) ** 2 + (y_p - y0) ** 2)
     r2 = np.sqrt((x_p + x0) ** 2 + (y_p + y0) ** 2)
-    vx = - (y_p - y0) / np.exp(0.3 * r1) + (y_p + y0) / np.exp(0.3 * r2)
+    vx = - (y_p - y0) / np.exp(alpha * r1) + (y_p + y0) / np.exp(alpha * r2)
     return vx
 
 
-def vortex_y(x_p, y_p, x0, y0):
+def vortex_y(x_p, y_p, x0, y0, alpha):
     r1 = np.sqrt((x_p - x0) ** 2 + (y_p - y0) ** 2)
     r2 = np.sqrt((x_p + x0) ** 2 + (y_p + y0) ** 2)
-    vy = (x_p - x0) / np.exp(0.3 * r1) - (x_p + x0) / np.exp(0.3 * r2)
+    vy = (x_p - x0) / np.exp(alpha * r1) - (x_p + x0) / np.exp(alpha * r2)
     return vy
 
 
 # Define vortex vector field
 def vortex(x_p, y_p, x0, y0):
+    alpha = 0.45
     # Vector field component functions
-    vx = vortex_x(x_p, y_p, x0, y0)
-    vy = vortex_y(x_p, y_p, x0, y0)
+    vx = vortex_x(x_p, y_p, x0, y0, alpha)
+    vy = vortex_y(x_p, y_p, x0, y0, alpha)
 
     # Calculate normalization coefficients
     v_norm = np.sqrt(vx ** 2 + vy ** 2)
