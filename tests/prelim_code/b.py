@@ -3,7 +3,7 @@ from pytraction import (TractionForceConfig, process_stack, plot, Dataset)
 
 
 def t_fourier_xu():
-    analyse_folder = os.path.join('data', 'example4')
+    analyse_folder = os.path.join('..', 'data', 'example4')
     E = 10000
     pix_per_mu = 9.64
 
@@ -21,7 +21,9 @@ def t_fourier_xu():
     png_path = os.path.join(analyse_folder, 'png',
                             '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.png')
 
-    traction_config = TractionForceConfig(E=E, scaling_factor=pix_per_mu, min_window_size=64,
+    traction_config = TractionForceConfig(E=E,
+                                          scaling_factor=pix_per_mu,
+                                          min_window_size=64,
                                           config_path=config_path,
                                           segment=False)
 

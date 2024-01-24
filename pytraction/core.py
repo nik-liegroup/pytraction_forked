@@ -2,7 +2,6 @@
 import io
 import os
 import pickle
-import tempfile
 from typing import Tuple, Type, Union, Any
 import h5py
 import numpy as np
@@ -10,21 +9,22 @@ import segmentation_models_pytorch as smp
 import tifffile
 import torch
 import yaml
-from shapely import geometry
 
 # Import custom modules from the 'pytraction' package
 from pytraction.dataset import Dataset
 from pytraction.net.dataloader import get_preprocessing
-from pytraction.preprocess import (_create_crop_mask_targets, _get_min_window_size, _get_polygon_and_roi,
-                                   _get_raw_frames, _load_frame_roi)
+from pytraction.preprocess import (create_crop_mask_targets, get_min_window_size,
+                                   get_polygon_and_roi, _get_raw_frames,
+                                   load_frame_roi, write_frame_results,
+                                   write_metadata_results)
 from pytraction.process import calculate_traction_map, iterative_piv
 from pytraction.roi import roi_loaders
-from pytraction.utils import normalize
+from pytraction.noise import get_noise
 
 
 class TractionForceConfig(object):
     """
-    Configuration class for traction force microscopy analysis.
+    Configuration class for 2D traction force microscopy analysis.
     Inherits from 'object' class (default).
     """
     def __init__(
@@ -132,7 +132,7 @@ class TractionForceConfig(object):
 
         # Load the CNN model
         # "cpu" ensures that model can be used on a CPU even if the original training was done on a different device
-        cnn_model = torch.load(f=model_path, map_location="cpu")  # ToDO: Rename to cnn_model
+        cnn_model = torch.load(f=model_path, map_location="cpu")
 
         if device == "cuda" and torch.cuda.is_available():
             best_model = cnn_model.to("cuda")
@@ -202,188 +202,6 @@ class TractionForceConfig(object):
         return img, ref, roi
 
 
-def _find_uv_outside_single_polygon(
-        x: np.ndarray,
-        y: np.ndarray,
-        u: np.ndarray,
-        v: np.ndarray,
-        polygon: Type[geometry.Polygon]  # Todo: Remove comma?
-) -> np.ndarray:  # Returns (un, vn) array with noisy u and v components
-    """
-    Function to find u and v deformation field components outside a single polygon.
-
-    @param  x: x-position of deformation vector
-    @param  y: y-position of deformation vector
-    @param  u: u-component of deformation vector
-    @param  v: v-component of deformation vector
-    @param polygon: shapely polygon to test which (x_i, y_i) is within
-    """
-    # Create empty list
-    noise = []
-
-    # Flatten multi-dim. arrays to 1D array and combine them element-wise, e.g. [(*,*,*,*), (*,*,*,*), ...]
-    for (x0, y0, u0, v0) in zip(x.flatten(), y.flatten(), u.flatten(), v.flatten()):
-        p1 = geometry.Point([x0, y0])  # Creates shapely point for each tuple (x0, y0, u0, v0) at coordinates (x0, y0)
-        if not p1.within(polygon):
-            noise.append(np.array([u0, v0]))  # Add (u0, v0) to noise list if not in polygon
-    return np.array(noise)
-
-
-# ToDo: Move noise calculations in separate .py file
-def _custom_noise(tiff_stack: np.ndarray,
-                  config: dict
-                  ) -> float:
-    """
-    Function to calculate custom noise value beta, representing the reciprocal of the variance of noise in a given image
-    stack.
-
-    @param  tiff_stack: Image stack in .tiff format
-    @param  config: Configuration file for TFM Analysis
-    """
-    tmpdir = tempfile.gettempdir()  # Get system's temporary directory
-    destination = f"{tmpdir}/tmp_noise.pickle"  # Define path to save cache file
-    cache = dict()
-
-    # Check if cache file with beta values for specific image stack already exists to save time
-    if os.path.exists(destination):
-        with open(destination, "rb") as f:
-            cache = pickle.load(f)  # Load previous computed noise data
-        beta = cache.get(tiff_stack, None)  # Check if there is a beta value for the current tiff_stack
-
-        if beta:
-            return beta  # Returns value immediately if present
-
-    # Calculate beta value
-    tiff_noise_stack = tifffile.imread(tiff_stack)  # Reads in images of (t,w,h) form
-    un, vn = np.array([]), np.array([])  # Arrays to store components of displacement vectors
-
-    # Calculate maximum between number of (time-frames - 1) and 2
-    # This ensures that there are enough frames for beta calculations
-    max_range = max(tiff_noise_stack.shape[0] - 1, 2)
-
-    for i in range(max_range):  # Iterates at least over index 0 and 1
-        # Select two subsequent images
-        img = normalize(tiff_noise_stack[i, :, :])
-        ref = normalize(tiff_noise_stack[i + 1, :, :])  # ToDo: Index out of boundary exception if less than 2?
-
-        # Particle Image Velocimetry between img and ref
-        # 'iterative_piv' from pytraction.process
-        x, y, u, v, stack = iterative_piv(img, ref, config)  # Returns vectors and positions
-
-        # Append u,v to un and vn arrays
-        un = np.append(un, u)
-        vn = np.append(vn, v)
-
-    noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
-    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
-    beta = 1 / var_noise  # Reciprocal represents quality of PIV operation and is a measure of the inverse noise level
-    cache[tiff_stack] = beta  # Save beta value with 'tiff_stack' as key
-
-    # Save cache file to system's temporary directory
-    with open(destination, "wb") as f:
-        pickle.dump(cache, f)
-
-    return beta  # ToDo: Call noise measurement in PIV function to avoid double calculation of displacement field
-
-
-def _get_noise(config,
-               x: np.ndarray,
-               y: np.ndarray,
-               u: np.ndarray,
-               v: np.ndarray,
-               polygon: Type[geometry.Polygon],
-               custom_noise: np.ndarray
-               ) -> float:
-    """
-    Function to calculate beta noise value based on input data.
-
-    @param  x: x-position of deformation vector
-    @param  y: y-position of deformation vector
-    @param  u: u-component of deformation vector
-    @param  v: v-component of deformation vector
-    @param  polygon: shapely polygon to test which (x_i, y_i) is within
-    @param  custom_noise: Image stack in .tiff format
-    """
-
-    # If ROI (polygon) is set, use vectors outside of polygon for noise calculation
-    if polygon:
-        noise_vec = _find_uv_outside_single_polygon(x=x, y=y, u=u, v=v, polygon=polygon)
-    # If custom_noise is provided in form of a tiff_stack, calculate and return beta value
-    elif custom_noise:
-        return _custom_noise(tiff_stack=custom_noise, config=config)
-    # Else calculate beta value in small region of image
-    else:
-        noise = 10  # Constant for used image size
-        xn, yn, un, vn = x[:noise], y[:noise], u[:noise], v[:noise]  # ToDo: xn, yn unused
-        noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
-
-    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
-    beta = 1 / var_noise  # Reciprocal of displacement variance is a measure of the inverse noise level
-
-    return beta
-
-
-def _write_frame_results(
-        results: type(h5py.File),
-        frame: int,
-        traction_map: np.ndarray,
-        f_n_m: np.ndarray,
-        stack: np.stack,
-        cell_img: np.ndarray,
-        mask: np.ndarray,
-        beta: float,
-        L_optimal: float,
-        pos: np.ndarray,
-        vec: np.ndarray,
-        txx: np.ndarray,
-        tyy: np.ndarray
-) -> type(h5py.File):
-    """
-    Function to write frame-specific results to an HDF5 file.
-
-    @param  results: HDF5 file to write to
-    @param  frame: Time-frame in image stack
-    @param  traction_map: # 2D scalar map of traction stresses
-    @param  f_n_m: 2D traction force vector field
-    @param  stack: Combination of image and reference
-    @param  cell_img: BF image of cell.
-    @param  mask: Mask to separate cell from background
-    @param  beta: Scalar value containing information about noise levels in PIV
-    @param  L_optimal: # ToDo:Missing description
-    @param  pos: Coordinates of deformation-vector positions
-    @param vec: Coordinates of deformation-vectors
-    """
-    # Use variables to partly overwrite data in results file
-    results[f"frame/{frame}"] = frame
-    results[f"traction_map/{frame}"] = traction_map
-    results[f"force_field/{frame}"] = f_n_m
-    results[f"stack_bead_roi/{frame}"] = stack
-    results[f"cell_roi/{frame}"] = cell_img
-    results[f"mask_roi/{frame}"] = 0 if mask is None else mask
-    results[f"beta/{frame}"] = beta
-    results[f"L/{frame}"] = L_optimal
-    results[f"pos/{frame}"] = pos
-    results[f"vec/{frame}"] = vec
-    results[f"txx/{frame}"] = txx
-    results[f"tyy/{frame}"] = tyy
-    return results
-
-
-# Define a function to write metadata (to an HDF5 file?)
-def _write_metadata_results(results: type(h5py.File),
-                            config: dict) -> type(h5py.File):
-    # Create metadata group with a placeholder dataset
-    results["metadata"] = 0
-
-    # Iterate through the PIV and TFM configuration parameters and store them as metadata
-    for k, v in config["piv"].items():
-        results["metadata"].attrs[k] = np.void(str(v).encode())
-
-    for k, v in config["tfm"].items():
-        results["metadata"].attrs[k] = np.void(str(v).encode())
-    return results
-
-
 def process_stack(
         img_stack: np.ndarray,
         ref_stack: np.ndarray,
@@ -428,32 +246,30 @@ def process_stack(
             )
 
             # Get the minimum window size for PIV
-            min_window_size = _get_min_window_size(img, config)
+            min_window_size = get_min_window_size(img, config)
             config.config["piv"]["min_window_size"] = min_window_size
 
             # Load ROI for the current frame
-            roi_i = _load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
+            roi_i = load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
 
             # Segment most central cell (or use ROI) to define polygon around cell. Returns (None, None) if otherwise.
-            polygon, pts = _get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
+            polygon, pts = get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
             # Crop targets if necessary
-            img, ref, cell_img, mask = _create_crop_mask_targets(
-                img, ref, cell_img, pts, crop, pad=50
-            )
+            img, ref, cell_img, mask = create_crop_mask_targets(img, ref, cell_img, pts, crop, pad=50)
 
             # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
             x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
 
             # Calculate noise value beta inside ROI, segmented cell or whole image
-            beta = _get_noise(config, x, y, u, v, polygon, custom_noise=custom_noise)
+            beta = get_noise(config, x, y, u, v, polygon, custom_noise=custom_noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
             pos = np.array([x.flatten(), y.flatten()])
             vec = np.array([u.flatten(), v.flatten()])
 
             # Compute traction map, force field, and L_optimal
-            traction_map, f_n_m, strain_energy, l_optimal, txx, tyy = calculate_traction_map(
+            traction_map, f_n_m, l_optimal = calculate_traction_map(
                 pos,
                 vec,
                 beta,
@@ -464,24 +280,11 @@ def process_stack(
             )
 
             # Write results for the current frame to the HDF5 file
-            results = _write_frame_results(
-                results,
-                frame,
-                traction_map,
-                f_n_m,
-                stack,
-                cell_img,
-                mask,
-                beta,
-                l_optimal,
-                pos,
-                vec,
-                txx,
-                tyy
-            )
+            results = write_frame_results(results, frame, traction_map, f_n_m, stack, cell_img, mask, beta, l_optimal,
+                                          pos, vec)
 
         # Write metadata to the results file
-        _write_metadata_results(results, config.config)
+        write_metadata_results(results, config.config)
 
         # To recover information in the future, use the following syntax:
         # h5py.File(results)['metadata'].attrs['img_path'].tobytes()

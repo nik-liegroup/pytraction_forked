@@ -97,6 +97,41 @@ def traction_bem(xx, yy, method, point_dens, s, elastic_modulus):
     return gamma_glob
 
 
+def traction_fourier(xx, yy, point_dens, s, elastic_modulus):
+    x_val, y_val = xx[0, :], yy[:, 0]
+    meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]
+
+    k_x, k_y = fftfreq(x_val.shape[0], d=meshsize_x), fftfreq(y_val.shape[0], d=meshsize_y)
+    kxx, kyy = np.meshgrid(k_x, k_y)
+
+    # Calculate Green's matrix in Fourier space
+    g_xx, g_xy, g_yy = kernel_ft(kxx, kyy, s, elastic_modulus)
+
+    # Set all zero frequency components in greens function to zero
+    g_xx[0, 0] = 0
+    g_xy[0, 0] = 0
+    g_yy[0, 0] = 0
+
+    #  Set values in middle row and column to zero
+    i_max = len(kxx[0, :])
+    j_max = len(kyy[:, 0])
+
+    g_xy[int(i_max // 2), :] = 0
+    g_xy[:, int(j_max // 2)] = 0
+
+    # Crate differential operator matrix
+    gamma_1 = np.diagflat(g_xx.reshape(1, point_dens ** 2))
+    gamma_2 = np.diagflat(g_xy.reshape(1, point_dens ** 2))
+
+    gamma_3 = np.diagflat(g_xy.reshape(1, point_dens ** 2))
+    gamma_4 = np.diagflat(g_yy.reshape(1, point_dens ** 2))
+
+    gamma_glob = np.block([[gamma_1, gamma_2],
+                           [gamma_3, gamma_4]])
+
+    return gamma_glob
+
+
 # Tikhonov regularization
 def tikhonov(X, u_glob, lambda_2):
     aa = X.shape[1]

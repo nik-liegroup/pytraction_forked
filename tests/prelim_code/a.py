@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.linalg import svd, norm, cholesky
 from typing import Callable
-from tests.prelim_code.tst_utilis import *
+from tests.prelim_code.prelim_utilis import *
 
 
 def bayesian_regularization(X, u_glob, ux, uy):

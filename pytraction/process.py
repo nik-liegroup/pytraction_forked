@@ -65,6 +65,7 @@ def calculate_traction_map(pos: np.array,
     Calculates the traction map given the displacement vector field and the noise value beta.
     """
     # Interpolate displacement field onto rectangular grid using meshsize
+    # ToDO: Check if reference frame update vec = vec + pos is necessary
     grid_mat, u, i_max, j_max = interp_vec2grid(pos, vec, meshsize, [])
 
     # Transform displacement field to fourier space
@@ -80,7 +81,7 @@ def calculate_traction_map(pos: np.array,
         ftux, ftuy, kxx, kyy, L, E, s, meshsize, i_max, j_max, pix_per_mu, 0, grid_mat
     )
 
-    # off with the shapes flip back into position
+    # Flip shapes back into position
     traction_magnitude = f_magnitude.reshape(i_max, j_max).T
     traction_magnitude = np.flip(traction_magnitude, axis=0)
 
@@ -92,7 +93,4 @@ def calculate_traction_map(pos: np.array,
     txx = f_n_m[:, :, 0]
     tyy = f_n_m[:, :, 1]
 
-    # Calculate strain energy
-    energy = strain_energy(xx, yy, txx, tyy, uxx, uyy, pix_per_mu)
-
-    return traction_magnitude, f_n_m, energy, L, txx, tyy
+    return traction_magnitude, f_n_m, L

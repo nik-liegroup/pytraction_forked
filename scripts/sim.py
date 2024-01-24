@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage import io
 
-from pytraction import TractionForceConfig, plot, prcoess_stack
+from pytraction import TractionForceConfig, plot, process_stack
 
 # # # ######### Example 1
 pix_per_mu = 1.3

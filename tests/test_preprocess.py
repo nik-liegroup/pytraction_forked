@@ -1,13 +1,13 @@
 import numpy as np
 
 from pytraction.preprocess import (_cnn_segment_cell,
-                                   _create_crop_mask_targets, _create_mask,
+                                   create_crop_mask_targets, _create_mask,
                                    _crop_roi,
                                    _detect_cell_instances_from_segmentation,
                                    _get_cell_img, _get_img_frame,
-                                   _get_min_window_size, _get_polygon_and_roi,
+                                   get_min_window_size, get_polygon_and_roi,
                                    _get_raw_frames, _get_reference_frame,
-                                   _load_frame_roi, _located_most_central_cell,
+                                   load_frame_roi, _located_most_central_cell,
                                    _predict_roi)
 
 

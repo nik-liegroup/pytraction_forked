@@ -8,7 +8,7 @@ from shapely.geometry import Polygon
 
 from pytraction.core import (TractionForceConfig, _custom_noise,
                              _find_uv_outside_single_polygon, _get_noise,
-                             _write_frame_results, _write_metadata_results,
+                             write_frame_results, write_metadata_results,
                              process_stack)
 
 

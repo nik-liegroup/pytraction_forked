@@ -69,8 +69,8 @@ def fourier_xu(
     gf_yy[0, 0] = 0
 
     # ToDo: Check if this is the correct approach (Set gf_xy for lowest frequencies to zero)
-    # gf_xy[int(i_max // 2), :] = 0  # Set values in middle row to zero
-    # gf_xy[:, int(j_max // 2)] = 0  # Set values in middle column to zero
+    gf_xy[int(i_max // 2), :] = 0  # Set values in middle row to zero
+    gf_xy[:, int(j_max // 2)] = 0  # Set values in middle column to zero
 
     # Reshape matrices from dim(i_max, j_max) to dim(1, i_max * j_max) by concatenating rows
     g1 = gf_xx.reshape(1, i_max * j_max)
@@ -194,8 +194,8 @@ def reg_fourier_tfm(
         Ginv_xy[0, 0] = 0
 
         # ToDo: Check if this is the correct approach (Set Ginv_xy for lowest frequencies to zero)
-        # Ginv_xy[int(i_max / 2), :] = 0
-        # Ginv_xy[:, int(j_max / 2)] = 0
+        Ginv_xy[int(i_max / 2), :] = 0
+        Ginv_xy[:, int(j_max / 2)] = 0
 
         # Calculate convolution of displacement field and Green's function in Fourier space
         ftfx = Ginv_xx * ftux + Ginv_xy * ftuy
@@ -443,8 +443,8 @@ def reg_fourier_tfm(
         Ginv_xy[0, 0] = 0
 
         # ToDo: Check if this is the correct approach (Set Ginv_xy for lowest frequencies to zero)
-        # Ginv_xy[int(i_max // 2), :] = 0
-        # Ginv_xy[:, int(j_max // 2)] = 0
+        Ginv_xy[int(i_max // 2), :] = 0
+        Ginv_xy[:, int(j_max // 2)] = 0
 
         # Calculate convolution of displacement field and Green's function in Fourier space
         ftfx = Ginv_xx * ftux + Ginv_xy * ftuy

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import simps, dblquad
-from tests.prelim_code.tst_utilis import *
+from tests.prelim_code.prelim_utilis import *
 from tests.prelim_code.tst_example_fields import *
 
 

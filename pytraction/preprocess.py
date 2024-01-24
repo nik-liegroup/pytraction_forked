@@ -1,10 +1,10 @@
-from typing import Tuple, Union, Any
-
 import cv2
 import numpy as np
 import shapely
 from scipy.spatial import distance
 from shapely import geometry
+import h5py
+from typing import Tuple, Type, Union, Any
 
 from pytraction.net import segment as pynet
 from pytraction.utils import align_slice, bead_density, normalize
@@ -43,7 +43,7 @@ def _get_raw_frames(img_stack: np.ndarray, ref_stack: np.ndarray, frame: int, be
     return img, ref, cell_img
 
 
-def _get_min_window_size(img: np.ndarray, config) -> int:
+def get_min_window_size(img: np.ndarray, config) -> int:
     """
     Calculate window size from bead density if min_window_size is not set in pyforce config file.
     """
@@ -60,7 +60,7 @@ def _get_min_window_size(img: np.ndarray, config) -> int:
         return config.config["piv"]["min_window_size"]
 
 
-def _load_frame_roi(roi, frame: int, nframes: int) -> list:
+def load_frame_roi(roi, frame: int, nframes: int) -> list:
     """
     Load ROI for current frame.
     """
@@ -142,7 +142,7 @@ def _predict_roi(cell_img: np.ndarray,
     return polyx, polyy
 
 
-def _get_polygon_and_roi(cell_img: np.ndarray,
+def get_polygon_and_roi(cell_img: np.ndarray,
                          roi: list,
                          config
                          ) -> Union[type(shapely.Polygon), type(np.ndarray)]:
@@ -207,7 +207,7 @@ def _crop_roi(img: np.ndarray,
     return img_crop, ref_crop, cell_img_crop, mask_crop
 
 
-def _create_crop_mask_targets(img: np.ndarray,
+def create_crop_mask_targets(img: np.ndarray,
                               ref: np.ndarray,
                               cell_img: np.ndarray,
                               pts: np.ndarray,
@@ -226,3 +226,87 @@ def _create_crop_mask_targets(img: np.ndarray,
 
     else:
         return img, ref, cell_img, None
+
+
+def _find_uv_outside_single_polygon(
+        x: np.ndarray,
+        y: np.ndarray,
+        u: np.ndarray,
+        v: np.ndarray,
+        polygon: Type[geometry.Polygon]  # Todo: Remove comma?
+) -> np.ndarray:  # Returns (un, vn) array with noisy u and v components
+    """
+    Function to find u and v deformation field components outside a single polygon.
+
+    @param  x: x-position of deformation vector
+    @param  y: y-position of deformation vector
+    @param  u: u-component of deformation vector
+    @param  v: v-component of deformation vector
+    @param polygon: shapely polygon to test which (x_i, y_i) is within
+    """
+    # Create empty list
+    noise = []
+
+    # Flatten multi-dim. arrays to 1D array and combine them element-wise, e.g. [(*,*,*,*), (*,*,*,*), ...]
+    for (x0, y0, u0, v0) in zip(x.flatten(), y.flatten(), u.flatten(), v.flatten()):
+        p1 = geometry.Point([x0, y0])  # Creates shapely point for each tuple (x0, y0, u0, v0) at coordinates (x0, y0)
+        if not p1.within(polygon):
+            noise.append(np.array([u0, v0]))  # Add (u0, v0) to noise list if not in polygon
+    return np.array(noise)
+
+
+def write_frame_results(
+        results: type(h5py.File),
+        frame: int,
+        traction_map: np.ndarray,
+        f_n_m: np.ndarray,
+        stack: np.stack,
+        cell_img: np.ndarray,
+        mask: np.ndarray,
+        beta: float,
+        L_optimal: float,
+        pos: np.ndarray,
+        vec: np.ndarray
+) -> type(h5py.File):
+    """
+    Function to write frame-specific results to an HDF5 file.
+
+    @param  results: HDF5 file to write to
+    @param  frame: Time-frame in image stack
+    @param  traction_map: # 2D scalar map of traction stresses
+    @param  f_n_m: 2D traction force vector field
+    @param  stack: Combination of image and reference
+    @param  cell_img: BF image of cell.
+    @param  mask: Mask to separate cell from background
+    @param  beta: Scalar value containing information about noise levels in PIV
+    @param  L_optimal: # ToDo:Missing description
+    @param  pos: Coordinates of deformation-vector positions
+    @param vec: Coordinates of deformation-vectors
+    """
+    # Use variables to partly overwrite data in results file
+    results[f"frame/{frame}"] = frame
+    results[f"traction_map/{frame}"] = traction_map
+    results[f"force_field/{frame}"] = f_n_m
+    results[f"stack_bead_roi/{frame}"] = stack
+    results[f"cell_roi/{frame}"] = cell_img
+    results[f"mask_roi/{frame}"] = 0 if mask is None else mask
+    results[f"beta/{frame}"] = beta
+    results[f"L/{frame}"] = L_optimal
+    results[f"pos/{frame}"] = pos
+    results[f"vec/{frame}"] = vec
+    return results
+
+
+# Define a function to write metadata (to an HDF5 file?)
+def write_metadata_results(results: type(h5py.File),
+                            config: dict) -> type(h5py.File):
+    # Create metadata group with a placeholder dataset
+    results["metadata"] = 0
+
+    # Iterate through the PIV and TFM configuration parameters and store them as metadata
+    for k, v in config["piv"].items():
+        results["metadata"].attrs[k] = np.void(str(v).encode())
+
+    for k, v in config["tfm"].items():
+        results["metadata"].attrs[k] = np.void(str(v).encode())
+    return results
