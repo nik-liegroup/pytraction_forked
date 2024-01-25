@@ -9,9 +9,9 @@ from tests.prelim_code.prelim_utilis import *
 # Define parameters
 elastic_modulus = 1000
 s = 0.48
-pix_per_mu = 1
+pix_per_mu = 9.68
 beta = 0.1
-lambda_2 = 0.0001
+lambda_2 = 0.001
 
 sigma = 5
 x0, y0 = 5, 5
@@ -50,7 +50,7 @@ fourier_ux = ifft2(fourier_u[:point_dens ** 2].reshape(point_dens, point_dens)).
 fourier_uy = ifft2(fourier_u[point_dens ** 2:].reshape(point_dens, point_dens)).real
 
 # Calculate inverse solution
-fourier_f = tikhonov(gamma_glob, inverse_fft_u, 0.0001)
+fourier_f = tikhonov_simple(gamma_glob, inverse_fft_u, 0.0001)
 fourier_fx = ifft2(fourier_f[:point_dens ** 2].reshape(point_dens, point_dens)).real
 fourier_fy = ifft2(fourier_f[point_dens ** 2:].reshape(point_dens, point_dens)).real
 
@@ -115,6 +115,6 @@ fig_inverse.savefig('fourier_inverse.png', dpi=300, bbox_inches="tight")
 axs[0].set_title('Input: 2D displacement field u(x,y)')
 axs[1].set_title('Fourier inverse solution f(x,y) to Fredholm integral')
 
-plt.suptitle('Boundary element method')
+plt.suptitle('Fourier method')
 plt.tight_layout()
 plt.show()

@@ -1,8 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.linalg
-from scipy.signal import convolve
-from scipy.fft import *
 from tests.prelim_code.prelim_utilis import *
 from tests.prelim_code.tst_example_fields import *
 
@@ -10,14 +7,13 @@ from tests.prelim_code.tst_example_fields import *
 elastic_modulus = 1000
 s = 0.48
 pix_per_mu = 1
-beta = 0.1
+beta = 1 / 1e-6
 lambda_2 = 0.0001
 
 sigma = 5
 x0, y0 = 5, 5
-width_x, width_y = 4, 4
 
-point_dens = 50
+point_dens = 30
 x_min, y_min = -10, -10
 x_max, y_max = 10, 10
 
@@ -43,8 +39,11 @@ bem_forward_u = (gamma_glob @ forward_glob_f)
 bem_forward_ux = bem_forward_u[:point_dens ** 2].reshape(point_dens, point_dens).T
 bem_forward_uy = bem_forward_u[point_dens ** 2:].reshape(point_dens, point_dens).T
 
-# Calculate inverse solution
-bem_inverse_f = tikhonov(gamma_glob, inverse_glob_u, lambda_2)
+# Calculate optimal lambda for inverse solution
+lambd = bayesian_regularization(gamma_glob, inverse_glob_u, beta)
+bem_inverse_f = tikhonov_simple(gamma_glob, inverse_glob_u, lambd)
+
+
 bem_inverse_fx = bem_inverse_f[:point_dens ** 2].reshape(point_dens, point_dens).T
 bem_inverse_fy = bem_inverse_f[point_dens ** 2:].reshape(point_dens, point_dens).T
 

@@ -2,11 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tests.prelim_code.tst_example_fields import *
 from pytraction.process import *
+from tests.prelim_code.prelim_utilis import *
 
 # Define parameters
 elastic_modulus = 1000
 s = 0.48
-pix_per_mu = 1
+pix_per_mu = 9.68
 beta = 0.1
 
 sigma = 5
@@ -14,11 +15,12 @@ x0, y0 = 5, 5
 width_x, width_y = 4, 4
 
 point_dens = 50
-x_min, y_min = -10, -10
-x_max, y_max = 10, 10
+x_min, y_min = -20, -20
+x_max, y_max = 20, 20
 
 # Create grid of points in spatial coordinates
-x_val, y_val = np.linspace(x_min, x_max, point_dens), np.linspace(y_min, y_max, point_dens)
+x_val, y_val = (np.linspace(x_min, x_max, point_dens),
+                np.linspace(y_min, y_max, point_dens))
 xx, yy = np.meshgrid(x_val, y_val)
 pos = np.array([xx.flatten(), yy.flatten()])
 
@@ -37,6 +39,8 @@ ftux, ftuy, kxx, kyy, i_max, j_max, X = fourier_xu(u,
                                                    elastic_modulus,
                                                    s,
                                                    meshsize)
+point_dens = int(np.shape(u[:, :, 0])[0])
+gamma_glob = traction_fourier(u[:, :, 0], u[:, :, 1], point_dens, s, elastic_modulus)
 
 # Calculate lambda from bayesian model
 L, evidencep, evidence_one = optimal_lambda(
@@ -92,7 +96,7 @@ cbar = fig_forward.colorbar(im, ax=axs[1], orientation='vertical', fraction=0.04
 cbar.set_label("Displacement field [\u03bcm]", rotation=270, labelpad=20, size=14)
 cbar.ax.tick_params(labelsize=14)
 
-fig_forward.savefig('fourier_forward.png', dpi=300, bbox_inches="tight")
+fig_forward.savefig('ryan_fourier_forward.png', dpi=300, bbox_inches="tight")
 axs[0].set_title('Input: 2D traction field f(x,y)')
 axs[1].set_title('Fourier forward solution u(x,y) to Fredholm integral')
 
@@ -124,7 +128,7 @@ cbar = fig_inverse.colorbar(im, ax=axs[1], orientation='vertical', fraction=0.04
 cbar.set_label("Traction stress [Pa]", rotation=270, labelpad=20, size=14)
 cbar.ax.tick_params(labelsize=14)
 
-fig_inverse.savefig('fourier_inverse.png', dpi=300, bbox_inches="tight")
+fig_inverse.savefig('ryan_fourier_inverse.png', dpi=300, bbox_inches="tight")
 axs[0].set_title('Input: 2D displacement field u(x,y)')
 axs[1].set_title('Fourier inverse solution f(x,y) to Fredholm integral')
 

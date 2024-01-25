@@ -26,8 +26,8 @@ def fourier_xu(
     @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
     """
     # Calculate 2D Fourier transform of displacement field components
-    ftux = np.fft.fft2(u[:, :, 0]).T  # FT of x component of u
-    ftuy = np.fft.fft2(u[:, :, 1]).T  # FT of y component of u
+    ftux = np.fft.fft2(u[:, :, 0])  # FT of x component of u
+    ftuy = np.fft.fft2(u[:, :, 1])  # FT of y component of u
 
     # Calculate an array of representable spatial frequencies (Natural numbers) in a discrete system up to the Nyquist
     # frequency and scale it with 2pi/(i_max * meshsize) to get the corresponding wave vectors
@@ -49,7 +49,7 @@ def fourier_xu(
     )
 
     # Creates rectangular grid from every combination of provided kx and ky coordinates
-    kxx, kyy = np.meshgrid(kx_vec, ky_vec, indexing='ij')  # kx and ky are both 2D matrices
+    kxx, kyy = np.meshgrid(kx_vec, ky_vec)  # kx and ky are both 2D matrices
 
     # Calculate the wave vectors magnitudes
     k = np.sqrt(kxx ** 2 + kyy ** 2)
