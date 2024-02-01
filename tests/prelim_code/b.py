@@ -15,7 +15,6 @@ def t_fourier_xu():
                             '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_Pos_Series_Reference_Position 7.tiff')
     roi_path = os.path.join(analyse_folder,
                             '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.roi')
-
     data_path = os.path.join(analyse_folder, 'h5',
                              '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.h5')
     png_path = os.path.join(analyse_folder, 'png',
