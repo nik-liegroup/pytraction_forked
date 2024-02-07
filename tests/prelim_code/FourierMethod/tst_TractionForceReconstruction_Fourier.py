@@ -4,7 +4,8 @@ from scipy.sparse import spdiags
 from scipy.linalg import pinv, inv
 from scipy.fft import *
 from tests.prelim_code.tst_example_fields import *
-from tests.prelim_code.prelim_utilis import *
+from tests.prelim_code.prelim_inversion import *
+from tests.prelim_code.prelim_regularization import *
 
 # Define parameters
 elastic_modulus = 1000
@@ -30,6 +31,8 @@ forward_fx, forward_fy, forward_glob_norm = tri_pole(xx, yy, x0, y0, sigma)
 
 # Define inverse Fredholm term u(x,y) on left side of integral equation
 inverse_ux, inverse_uy, inverse_norm = vortex(xx, yy, x0, y0)
+inverse_u = np.concatenate([inverse_ux.reshape(point_dens ** 2, 1),
+                            inverse_uy.reshape(point_dens ** 2, 1)])
 
 # Calculate fourier transform of 2D field components
 forward_fft_fx = fft2(forward_fx)
@@ -42,7 +45,8 @@ inverse_fft_uy = fft2(inverse_uy)
 inverse_fft_u = np.concatenate([inverse_fft_ux.reshape(point_dens ** 2, 1),
                                 inverse_fft_uy.reshape(point_dens ** 2, 1)])
 
-gamma_glob = traction_fourier(xx, yy, point_dens, s, elastic_modulus)
+fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, gamma_glob = (
+    traction_fourier(xx, yy, inverse_ux, inverse_uy, s, elastic_modulus, None, pix_per_mu))
 
 # Calculate forward solution
 fourier_u = gamma_glob @ forward_fft_f

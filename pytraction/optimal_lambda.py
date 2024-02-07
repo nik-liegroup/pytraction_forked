@@ -60,7 +60,7 @@ def minus_logevidence(
 
 
 def optimal_lambda(
-    beta, ftux, ftuy, kx, ky, E, s, cluster_size, i_max, j_max, X, sequence
+    beta, ftux, ftuy, kx, ky, E, s, cluster_size, i_max, j_max, X
 ):
     # Reshaped into column vectors
     fux1 = ftux.reshape(i_max * j_max, 1)

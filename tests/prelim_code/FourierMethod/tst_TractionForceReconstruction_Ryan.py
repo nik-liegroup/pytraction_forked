@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from tests.prelim_code.tst_example_fields import *
-from pytraction.process import *
-from tests.prelim_code.prelim_utilis import *
+from tests.prelim_code.prelim_regularization import *
+from tests.prelim_code.prelim_inversion import *
 
 # Define parameters
 elastic_modulus = 1000
@@ -22,50 +22,36 @@ x_max, y_max = 20, 20
 x_val, y_val = (np.linspace(x_min, x_max, point_dens),
                 np.linspace(y_min, y_max, point_dens))
 xx, yy = np.meshgrid(x_val, y_val)
-pos = np.array([xx.flatten(), yy.flatten()])
+
+i_max = (np.shape(xx)[0])
+j_max = (np.shape(yy)[1])
+meshsize = x_val[1] - x_val[0]
 
 # Define inverse Fredholm term u(x,y) on left side of integral equation
 inverse_ux, inverse_uy, inverse_norm = vortex(xx, yy, x0, y0)
 inverse_u = np.array([inverse_ux.flatten(), inverse_uy.flatten()])
 
 # Calculate inverse solution
-meshsize = xx[0, 1] - xx[0, 0]
-
-grid_mat, u, i_max, j_max = interp_vec2grid(pos, inverse_u, meshsize, [])
-
-ftux, ftuy, kxx, kyy, i_max, j_max, X = fourier_xu(u,
-                                                   i_max,
-                                                   j_max,
-                                                   elastic_modulus,
-                                                   s,
-                                                   meshsize)
-point_dens = int(np.shape(u[:, :, 0])[0])
-gamma_glob = traction_fourier(u[:, :, 0], u[:, :, 1], point_dens, s, elastic_modulus)
+_, _, _, _, ft_ux, ft_uy, kxx, kyy, X = traction_fourier(
+    xx, yy, inverse_ux, inverse_uy, s, elastic_modulus, lambd=None, scaling_factor=pix_per_mu, zdepth=0
+)
 
 # Calculate lambda from bayesian model
-L, evidencep, evidence_one = optimal_lambda(
-    beta, ftux, ftuy, kxx, kyy, elastic_modulus, s, meshsize, i_max, j_max, X, 1
+L, evidencep, evidence_one = bayesian_regularization_ft(
+    beta, ft_ux, ft_uy, elastic_modulus, s, i_max, j_max, X, xx, yy, inverse_ux, inverse_uy
 )
 
 # Calculate traction field in fourier space and transform back to spatial domain
-f_pos, f_nm_2, fourier_f, f_n_m, ftfx, ftfy = reg_fourier_tfm(
-    ftux, ftuy, kxx, kyy, L, elastic_modulus, s, meshsize, i_max, j_max, pix_per_mu, 0, grid_mat
+fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, X = traction_fourier(
+    xx, yy, inverse_ux, inverse_uy, s, elastic_modulus, lambd=L, scaling_factor=pix_per_mu, zdepth=0
 )
 
-fourier_fx = f_n_m[:, :, 0]
-fourier_fy = f_n_m[:, :, 1]
-
-# Flip shapes back into position
-fourier_f = fourier_f.reshape(i_max, j_max).T
-fourier_f = np.flip(fourier_f, axis=0)
-
 # Define forward Fredholm term f(x, y) under integral
-forward_fx, forward_fy, forward_glob_norm = tri_pole(grid_mat[:, :, 0], grid_mat[:, :, 1], x0, y0, sigma)
+forward_fx, forward_fy, forward_glob_norm = tri_pole(xx, yy, x0, y0, sigma)
 forward_f = np.array([forward_fx.flatten(), forward_fy.flatten()])
 fourier_u = X @ forward_f.flatten()
-
-fourier_ux = fourier_u[:len(grid_mat[:, :, 0]) ** 2].reshape(len(grid_mat[:, :, 0]), len(grid_mat[:, :, 0]))
-fourier_uy = fourier_u[len(grid_mat[:, :, 1]) ** 2:].reshape(len(grid_mat[:, :, 1]), len(grid_mat[:, :, 1]))
+fourier_ux = fourier_u[:i_max * j_max].reshape(i_max, j_max)
+fourier_uy = fourier_u[i_max * j_max:].reshape(i_max, j_max)
 
 # Plots
 # Create subplot for forward solution
@@ -74,22 +60,22 @@ plt.suptitle('Ryans fourier method: Forward solution')
 
 # Quiver plot for the first vector field
 im = axs[0].imshow(np.rot90(np.sqrt(forward_fx ** 2 + forward_fy ** 2), 3),
-                   extent=[np.min(grid_mat[:, :, 0]), np.max(grid_mat[:, :, 0]),
-                           np.min(grid_mat[:, :, 1]), np.max(grid_mat[:, :, 1])],
+                   extent=[np.min(xx), np.max(xx),
+                           np.min(yy), np.max(yy)],
                    interpolation="bicubic",
                    cmap="jet")
-axs[0].quiver(grid_mat[:, :, 0], grid_mat[:, :, 1], forward_fx, forward_fy, color='black')
+axs[0].quiver(xx, yy, forward_fx, forward_fy, color='black')
 cbar = fig_forward.colorbar(im, ax=axs[0], orientation='vertical', fraction=0.046, pad=0.04)
 cbar.set_label("Traction stress [Pa]", rotation=270, labelpad=20, size=14)
 cbar.ax.tick_params(labelsize=14)
 
 # Quiver plot for the second vector field
 im = axs[1].imshow(np.rot90(np.sqrt(fourier_ux ** 2 + fourier_uy ** 2), 3),
-                   extent=[np.min(grid_mat[:, :, 0]), np.max(grid_mat[:, :, 0]),
-                           np.min(grid_mat[:, :, 1]), np.max(grid_mat[:, :, 1])],
+                   extent=[np.min(xx), np.max(xx),
+                           np.min(yy), np.max(yy)],
                    interpolation="bicubic",
                    cmap="jet")
-axs[1].quiver(grid_mat[:, :, 0], grid_mat[:, :, 1], fourier_ux, fourier_uy, color='black')
+axs[1].quiver(xx, yy, fourier_ux, fourier_uy, color='black')
 axs[0].set_axis_off()
 axs[1].set_axis_off()
 cbar = fig_forward.colorbar(im, ax=axs[1], orientation='vertical', fraction=0.046, pad=0.04)
@@ -105,23 +91,23 @@ fig_inverse, axs = plt.subplots(1, 2, figsize=(10, 4))
 plt.suptitle('Fourier method: Inverse solution')
 
 # Quiver plot for the third vector field
-im = axs[0].imshow(np.rot90(np.sqrt(u[:, :, 0] ** 2 + u[:, :, 1] ** 2), 3),
-                   extent=[np.min(grid_mat[:, :, 0]), np.max(grid_mat[:, :, 0]),
-                           np.min(grid_mat[:, :, 1]), np.max(grid_mat[:, :, 1])],
+im = axs[0].imshow(np.rot90(np.sqrt(inverse_ux ** 2 + inverse_uy ** 2), 3),
+                   extent=[np.min(xx), np.max(xx),
+                           np.min(yy), np.max(yy)],
                    interpolation="bicubic",
                    cmap="jet")
-axs[0].quiver(grid_mat[:, :, 0], grid_mat[:, :, 1], u[:, :, 0], u[:, :, 1], color='black')
+axs[0].quiver(xx, yy, inverse_ux, inverse_uy, color='black')
 cbar = fig_inverse.colorbar(im, ax=axs[0], orientation='vertical', fraction=0.046, pad=0.04)
 cbar.set_label("Displacement field [\u03bcm]", rotation=270, labelpad=20, size=14)
 cbar.ax.tick_params(labelsize=14)
 
 # Quiver plot for the fourth vector field
-im = axs[1].imshow(np.rot90(np.sqrt(fourier_fx ** 2 + fourier_fy ** 2), 3),
-                   extent=[np.min(grid_mat[:, :, 0]), np.max(grid_mat[:, :, 0]),
-                           np.min(grid_mat[:, :, 1]), np.max(grid_mat[:, :, 1])],
+im = axs[1].imshow(np.rot90(np.sqrt(fx ** 2 + fy ** 2), 3),
+                   extent=[np.min(xx), np.max(xx),
+                           np.min(yy), np.max(yy)],
                    interpolation="bicubic",
                    cmap="jet")
-axs[1].quiver(grid_mat[:, :, 0], grid_mat[:, :, 1], fourier_fx, fourier_fy, color='black')
+axs[1].quiver(xx, yy, fx, fy, color='black')
 axs[0].set_axis_off()
 axs[1].set_axis_off()
 cbar = fig_inverse.colorbar(im, ax=axs[1], orientation='vertical', fraction=0.046, pad=0.04)
