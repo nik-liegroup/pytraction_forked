@@ -73,7 +73,7 @@ def calculate_traction_map(pos: np.array,
 
     # Calculate lambda from bayesian model
     L, evidencep, evidence_one = optimal_lambda(
-        beta, ftux, ftuy, kxx, kyy, E, s, meshsize, i_max, j_max, X, 1
+        beta, ftux, ftuy, kxx, kyy, E, s, meshsize, i_max, j_max, X
     )
 
     # Calculate traction field in fourier space and transform back to spatial domain
@@ -93,4 +93,4 @@ def calculate_traction_map(pos: np.array,
     txx = f_n_m[:, :, 0]
     tyy = f_n_m[:, :, 1]
 
-    return traction_magnitude, f_n_m, L
+    return traction_magnitude, f_n_m, L, evidence_one

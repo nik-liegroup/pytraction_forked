@@ -187,13 +187,24 @@ class TractionForceConfig(object):
             msg = f"Image data not loaded for {img_path} or {ref_path}"
             raise TypeError(msg)
 
-        if len(img.shape) != 4:
+        if len(img.shape) == 5:
+            img = np.max(img, axis=1)
+            msg = f"3D image stack was projected to a single z-plane and the new stack shape is now {img.shape}"
+            print(msg)
+        elif len(img.shape) != 4:
             msg = f"Please ensure that the input image has shape (t,c,w,h) the current shape is {img.shape}"
             raise RuntimeWarning(msg)
 
         if len(ref.shape) == 4:
             ref = ref[-1:, :, :, :]  # Project to last time-step
             ref = np.reshape(ref, (ref.shape[1], ref.shape[2], ref.shape[3]))
+        elif len(ref.shape) == 5:
+            ref = np.max(ref, axis=1)
+            msg = f"3D image stack was projected to a single z-plane and the new stack is now {ref.shape}"
+            print(msg)
+        elif len(ref.shape) != 4:
+            msg = f"Please ensure that the input image has shape (t,c,w,h) the current shape is {ref.shape}"
+            raise RuntimeWarning(msg)
 
         if len(ref.shape) != 3:
             msg = f"Please ensure that the input ref image has shape (c,w,h) the current shape is {ref.shape}"
@@ -256,7 +267,7 @@ def process_stack(
             polygon, pts = get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
             # Crop targets if necessary
-            img, ref, cell_img, mask = create_crop_mask_targets(img, ref, cell_img, pts, crop, pad=50)
+            img, ref, cell_img, mask = create_crop_mask_targets(img, ref, cell_img, pts, crop, pad=0)
 
             # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
             x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
@@ -269,7 +280,7 @@ def process_stack(
             vec = np.array([u.flatten(), v.flatten()])
 
             # Compute traction map, force field, and L_optimal
-            traction_map, f_n_m, l_optimal = calculate_traction_map(
+            traction_map, f_n_m, l_optimal, evidence_one = calculate_traction_map(
                 pos,
                 vec,
                 beta,
@@ -279,9 +290,11 @@ def process_stack(
                 config.config["tfm"]["E"],
             )
 
+            #if evidence_one != None:
             # Write results for the current frame to the HDF5 file
             results = write_frame_results(results, frame, traction_map, f_n_m, stack, cell_img, mask, beta, l_optimal,
                                           pos, vec)
+
 
         # Write metadata to the results file
         write_metadata_results(results, config.config)

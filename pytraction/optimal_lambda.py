@@ -105,7 +105,12 @@ def optimal_lambda(
     )
     alpha_opt = optimize.fminbound(target, alpha1, alpha2, disp=3)
 
-    evidence_one = -target(alpha_opt)
-    lambda_2 = alpha_opt / beta
+    if (alpha_opt > alpha1 * 0.9) and (alpha_opt < 0.9 * alpha2):
+        evidence_one = -target(alpha_opt)
+        lambda_2 = alpha_opt / beta
+    else:
+        evidence_one = None
+        lambda_2 = alpha_opt / beta
+
 
     return lambda_2, None, evidence_one

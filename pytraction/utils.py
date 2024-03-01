@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Tuple, Type
+from typing import Tuple, Type, Union
 
 import cv2
 import matplotlib as mpl
@@ -190,7 +190,7 @@ def remove_boarder_from_aligned(aligned_img: np.ndarray,
 
 def plot(
     log: type(Dataset),
-    frame: int = 0,
+    frames: Union[list, int] = 0,
     vmax: float = None,
     mask: bool = True,
     figsize: tuple = (16, 16),
@@ -208,26 +208,52 @@ def plot(
         Tuple[plt.figure.Figure,plt.axes.Axes]: [description]
     """
 
-    log = log[frame]
-    traction_map = log["traction_map"][0]
-    cell_roi = log["cell_roi"][0]
-    x, y = log["pos"][0]
-    u, v = log["vec"][0]
-    L = log["L"][0]
-    vmax = np.max(traction_map) if not vmax else vmax
+    if isinstance(frames, int):
+        frames = np.asarray([frames], dtype=int)
+
+    traction_map, cell_roi, pos, pos_dim, vec, L = [], [], [], [], [], []
+
+    # Find the most common image dimension in the time-series
+    for frame in frames:
+        dim_tmp = log[frame]["pos"][0]
+        pos_dim.append(len(dim_tmp[0]))
+    comm_dim = max(set(pos_dim), key=pos_dim.count)
+
+    # Iterate over time-series results
+    for frame in frames:
+        frame = int(frame)
+        log_frame = log[frame]
+
+        # Filter images with dimensions different from most commmon dimension
+        if len(log_frame["pos"][0][0]) != comm_dim:
+            continue
+
+        traction_map.append(log_frame["traction_map"][0])
+        cell_roi.append(log_frame["cell_roi"][0])
+        pos.append(log_frame["pos"][0])
+        vec.append(log_frame["vec"][0])
+        L.append(log_frame["L"][0])
+
+    # Calculate mean fields and values for time-series
+    traction_map_mean = np.median(traction_map, axis=0)
+    cell_roi_mean = np.mean(cell_roi, axis=0)
+    x, y = np.mean(pos, axis=0)
+    u_mean, v_mean = np.mean(vec, axis=0)
+    L_mean = np.mean(L)
+    vmax = np.max(traction_map_mean) if not vmax else vmax
 
     fig, ax = plt.subplots(1, 2, figsize=figsize)
     im1 = ax[0].imshow(
-        traction_map,
+        traction_map_mean,
         interpolation="bicubic",
         cmap="jet",
         extent=[x.min(), x.max(), y.min(), y.max()],
         vmin=0,
         vmax=vmax,
     )
-    ax[0].quiver(x, y, u, v)
+    ax[0].quiver(x, y, u_mean, v_mean)
 
-    if mask and log["mask_roi"][0].shape:
+    if mask and log[0]["mask_roi"][0].shape:
         mask = log["mask_roi"][0]
         mask = np.ma.masked_where(mask == 255, mask)
         ax[0].imshow(mask, cmap="jet", extent=[x.min(), x.max(), y.min(), y.max()])
@@ -235,7 +261,7 @@ def plot(
     divider1 = make_axes_locatable(ax[0])
     cax1 = divider1.append_axes("right", size="5%", pad=0.05)
 
-    im2 = ax[1].imshow(cell_roi, cmap="gray", vmax=np.max(cell_roi))
+    im2 = ax[1].imshow(cell_roi_mean, cmap="gray", vmax=np.max(cell_roi_mean))
 
     cbar = fig.colorbar(im1, cax=cax1)
     cbar.set_label("Traction stress [Pa]", rotation=270, labelpad=20, size=20)
