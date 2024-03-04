@@ -164,7 +164,7 @@ class TractionForceConfig(object):
     @staticmethod
     def load_data(
             img_path: str,
-            ref_path: str,
+            ref_path: Union[str, None],
             roi_path: str = ""
     ) -> Tuple[np.ndarray, np.ndarray, Union[Tuple[list, list], list, None]]:
         """
@@ -178,36 +178,35 @@ class TractionForceConfig(object):
         img = tifffile.imread(img_path)
 
         #  Read .tiff reference file as numpy array in (c,w,h) format
-        ref = tifffile.imread(ref_path)
+        if ref_path is not None:
+            ref = tifffile.imread(ref_path)
+        else:
+            ref = None
 
         roi = roi_loaders(roi_path)  # Load ROI file
 
         # Check if img & ref are instances of the 'np.ndarray' class
-        if not isinstance(img, np.ndarray) or not isinstance(ref, np.ndarray):
+        if not isinstance(img, np.ndarray) or not isinstance(ref, (np.ndarray, type(None))):
             msg = f"Image data not loaded for {img_path} or {ref_path}"
             raise TypeError(msg)
 
         if len(img.shape) == 5:
             img = np.max(img, axis=1)
-            msg = f"3D image stack was projected to a single z-plane and the new stack shape is now {img.shape}"
+            msg = f"3D image stack was projected to a single z-plane and the new stack shape is {img.shape}"
             print(msg)
         elif len(img.shape) != 4:
-            msg = f"Please ensure that the input image has shape (t,c,w,h) the current shape is {img.shape}"
+            msg = f"Please ensure that the input image has shape (t,c,w,h) or (t,z,c,w,h) the current shape is {img.shape}"
             raise RuntimeWarning(msg)
 
-        if len(ref.shape) == 4:
-            ref = ref[-1:, :, :, :]  # Project to last time-step
-            ref = np.reshape(ref, (ref.shape[1], ref.shape[2], ref.shape[3]))
-        elif len(ref.shape) == 5:
-            ref = np.max(ref, axis=1)
-            msg = f"3D image stack was projected to a single z-plane and the new stack is now {ref.shape}"
+        if ref is None:
+            msg = f"Using dynamic reference frame for PIV algorithm."
+            pass
+        elif len(ref.shape) == 4:
+            ref = np.max(ref, axis=0)
+            msg = f"3D reference stack was projected to a single z-plane and the new stack shape is {ref.shape}"
             print(msg)
-        elif len(ref.shape) != 4:
-            msg = f"Please ensure that the input image has shape (t,c,w,h) the current shape is {ref.shape}"
-            raise RuntimeWarning(msg)
-
-        if len(ref.shape) != 3:
-            msg = f"Please ensure that the input ref image has shape (c,w,h) the current shape is {ref.shape}"
+        elif len(ref.shape) != 3:
+            msg = f"Please ensure that the reference image has shape (c,w,h) or (z,c,w,h) the current shape is {ref.shape}"
             raise RuntimeWarning(msg)
 
         return img, ref, roi
@@ -215,7 +214,7 @@ class TractionForceConfig(object):
 
 def process_stack(
         img_stack: np.ndarray,
-        ref_stack: np.ndarray,
+        ref_stack: Union[np.ndarray, None],
         config: type(TractionForceConfig),
         roi: Union[Tuple[list, list], list, None],
         bead_channel: int = 1,
@@ -241,7 +240,10 @@ def process_stack(
         raise TypeError(msg)
 
     # Determine the number of time-frames in the image stack
-    n_frames = img_stack.shape[0]
+    if ref_stack is not None:
+        n_frames = img_stack.shape[0]
+    else:
+        n_frames = img_stack.shape[0] - 1
 
     # Create an in-memory binary buffer for storing results without creating a physical file
     bytes_hdf5 = io.BytesIO()

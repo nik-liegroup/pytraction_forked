@@ -30,6 +30,11 @@ class Dataset(object):
             length = list(f["frame"].keys())
         return len(length)
 
+    def frame_indices(self):
+        with h5py.File(self.log) as f:
+            indices = list(f["frame"].keys())
+        return indices
+
     def __getitem__(self, idx):
         if isinstance(idx, int):
             if idx > self.__len__():

@@ -17,6 +17,12 @@ def _get_reference_frame(ref_stack: np.ndarray, _, bead_channel: int) -> np.ndar
     """
     return normalize(np.array(ref_stack[bead_channel, :, :]))
 
+def _get_dynamic_reference_frame(img_stack: np.ndarray, frame: int, bead_channel: int) -> np.ndarray:
+    """
+        Extract and normalize bead channel from dynamic reference frame.
+    """
+    return normalize(np.array(img_stack[frame + 1, bead_channel, :, :]))
+
 
 def _get_img_frame(img_stack: np.ndarray, frame: int, bead_channel: int) -> np.ndarray:
     """
@@ -32,13 +38,16 @@ def _get_cell_img(img_stack: np.ndarray, frame: int, cell_channel: int) -> np.nd
     return normalize(np.array(img_stack[frame, cell_channel, :, :]))
 
 
-def _get_raw_frames(img_stack: np.ndarray, ref_stack: np.ndarray, frame: int, bead_channel: int,
+def _get_raw_frames(img_stack: np.ndarray, ref_stack: Union[np.ndarray, None], frame: int, bead_channel: int,
                     cell_channel: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Extract normalized bead frame from image and reference stack get cell channels from image stack.
     """
     img = _get_img_frame(img_stack, frame, bead_channel)
-    ref = _get_reference_frame(ref_stack, frame, bead_channel)
+    if ref_stack is not None:
+        ref = _get_reference_frame(ref_stack, frame, bead_channel)
+    else:
+        ref = _get_dynamic_reference_frame(img_stack, frame, bead_channel)
     cell_img = _get_cell_img(img_stack, frame, cell_channel)
     return img, ref, cell_img
 

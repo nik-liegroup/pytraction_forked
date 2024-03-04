@@ -215,6 +215,7 @@ def plot(
 
     # Find the most common image dimension in the time-series
     for frame in frames:
+        frame = int(frame)
         dim_tmp = log[frame]["pos"][0]
         pos_dim.append(len(dim_tmp[0]))
     comm_dim = max(set(pos_dim), key=pos_dim.count)
@@ -235,9 +236,9 @@ def plot(
         L.append(log_frame["L"][0])
 
     # Calculate mean fields and values for time-series
-    traction_map_mean = np.median(traction_map, axis=0)
-    cell_roi_mean = np.mean(cell_roi, axis=0)
-    x, y = np.mean(pos, axis=0)
+    traction_map_mean = np.mean(traction_map, axis=0)
+    cell_roi_mean = cell_roi[0]
+    x, y = pos[0]
     u_mean, v_mean = np.mean(vec, axis=0)
     L_mean = np.mean(L)
     vmax = np.max(traction_map_mean) if not vmax else vmax
@@ -254,7 +255,7 @@ def plot(
     ax[0].quiver(x, y, u_mean, v_mean)
 
     if mask and log[0]["mask_roi"][0].shape:
-        mask = log["mask_roi"][0]
+        mask = log[0]["mask_roi"][0]
         mask = np.ma.masked_where(mask == 255, mask)
         ax[0].imshow(mask, cmap="jet", extent=[x.min(), x.max(), y.min(), y.max()])
 

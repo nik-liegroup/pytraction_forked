@@ -17,6 +17,8 @@ def iterative_piv(img: np.ndarray,
     Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy) and displacement vectors (u,v)
     for positions (x,y).
     """
+    if np.allclose(img, ref, rtol=1e-05, atol=1e-08):
+        raise ValueError("Image and reference fram are approximately equal (Tolerance: 1e-05).")
     dx, dy, img = align_slice(img, ref)  # Get drift in x,y and drift corrected img
     if config.config["settings"]["crop_aligned_slice"]:
         img, ref = remove_boarder_from_aligned(img, ref)  # Crop img and ref to remove black borders
@@ -32,6 +34,7 @@ def compute_piv(img: np.ndarray,
     """
     Compute PIV using a window displacement iterative method with implementation of window size coarsening.
     """
+
     try:
         # Compute PIV using the window displacement iterative method implemented by openpiv
         x, y, u, v, mask = widim.WiDIM(  # Returns displacement vectors (u,v) for positions (x,y)
