@@ -1,4 +1,4 @@
-from pytraction.roi import (_load_csv_roi, _load_roireader_roi, _load_zip_roi,
+from pytraction.roi import (_load_csv_roi, _load_roi, _load_zip_roi,
                             _recursive_lookup, roi_loaders)
 
 
@@ -26,7 +26,7 @@ def test__load_csv_roi():
 def test__load_roireader_roi():
     imagej_roi_example = "tests/data/imagej_roi.roi"
 
-    (x, y) = _load_roireader_roi(imagej_roi_example)
+    (x, y) = _load_roi(imagej_roi_example)
 
     assert isinstance(x, list)
     assert isinstance(y, list)

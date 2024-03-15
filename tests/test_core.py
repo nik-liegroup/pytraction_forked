@@ -22,28 +22,28 @@ def test_TractionForceConfig_test_models():
         E=E, scaling_factor=scaling_factor, config=config_file, knn=False, cnn=False
     )
 
-    assert tf_config.model == None
+    assert tf_config.cnn == None
     assert tf_config.pre_fn == None
     assert tf_config.knn == None
 
     tf_config = TractionForceConfig(
         E=E, scaling_factor=scaling_factor, config=config_file, knn=False, cnn=True
     )
-    assert hasattr(tf_config.model, "predict")
+    assert hasattr(tf_config.cnn, "predict")
     assert tf_config.pre_fn != None
     assert tf_config.knn == None
 
     tf_config = TractionForceConfig(
         E=E, scaling_factor=scaling_factor, config=config_file, knn=True, cnn=False
     )
-    assert tf_config.model == None
+    assert tf_config.cnn == None
     assert tf_config.pre_fn == None
     assert hasattr(tf_config.knn, "predict")
 
     tf_config = TractionForceConfig(
         E=E, scaling_factor=scaling_factor, config=config_file, knn=True, cnn=True
     )
-    assert hasattr(tf_config.model, "predict")
+    assert hasattr(tf_config.cnn, "predict")
     assert tf_config.pre_fn != None
     assert hasattr(tf_config.knn, "predict")
 

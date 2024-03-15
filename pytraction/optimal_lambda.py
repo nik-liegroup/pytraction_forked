@@ -81,7 +81,7 @@ def optimal_lambda(
     constant = aa[0] * np.log(beta) - aa[0] * np.log(2 * np.pi)
 
     # Golden section search method to find alpha at minimum of -log(Evidence)
-    # setting the range of parameter search. Change if maximum can not be found in your data
+    # setting the range of parameter search. Change if minimum can not be found in your data
     alpha1 = 1e-6
     alpha2 = 1e6
 
@@ -103,14 +103,59 @@ def optimal_lambda(
         kx = kx,
         ky = ky
     )
+
     alpha_opt = optimize.fminbound(target, alpha1, alpha2, disp=3)
 
     if (alpha_opt > alpha1 * 0.9) and (alpha_opt < 0.9 * alpha2):
         evidence_one = -target(alpha_opt)
         lambda_2 = alpha_opt / beta
     else:
-        evidence_one = None
+        alpha1 = 1e-6
+        alpha2 = 0.05
+        alpha = np.linspace(alpha1, alpha2, 100)
+        logevidence = alpha.copy()
+
+        for index, value in np.ndenumerate(alpha):
+            logevidence[index] = minus_logevidence(
+                alpha=value,
+                beta=beta,
+                C_a=C_a,
+                BX_a=BX_a,
+                X=X,
+                fuu=fuu,
+                constant=constant,
+                Ftux=ftux,
+                Ftuy=ftuy,
+                E=E,
+                s=s,
+                cluster_size=cluster_size,
+                i_max=i_max,
+                j_max=j_max,
+                kx=kx,
+                ky=ky
+            )
+
+        grad_logevidence = np.gradient(logevidence, alpha)
+        angle_logevidence = -np.rad2deg(np.arctan(grad_logevidence))
+
+        angle_diff = np.abs(angle_logevidence - 45)
+        idx = angle_diff.argmin()
+        alpha_opt = alpha[idx]
+
+        #Default value
+        alpha_opt = 0.05
+
+        ###
+        import matplotlib.pyplot as plt
+        plt.plot(alpha, logevidence, 'g')
+        plt.axvline(x=alpha_opt, color='b')
+        #plt.show()
+        plt.close()
+        ###
+
+        evidence_one = -target(alpha_opt)
         lambda_2 = alpha_opt / beta
 
+        print(f'Alpha value too close to boundary, found new evidence value: {evidence_one} with new alpha value: {alpha_opt} using gradient method')
 
     return lambda_2, None, evidence_one

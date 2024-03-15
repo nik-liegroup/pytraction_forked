@@ -9,13 +9,12 @@ from shapely import geometry
 
 # Import custom modules from the 'pytraction' package
 from pytraction.process import iterative_piv
-from pytraction.preprocess import _find_uv_outside_single_polygon
-from pytraction.utils import normalize
+from pytraction.preprocess import _find_uv_outside_single_polygon, normalize
 
 
 def custom_noise(tiff_stack: np.ndarray,
-                  config: dict
-                  ) -> float:
+                 config: dict
+                 ) -> float:
     """
     Function to calculate custom noise value beta, representing the reciprocal of the variance of noise in a given image
     stack.
@@ -70,13 +69,13 @@ def custom_noise(tiff_stack: np.ndarray,
 
 
 def get_noise(config,
-               x: np.ndarray,
-               y: np.ndarray,
-               u: np.ndarray,
-               v: np.ndarray,
-               polygon: Union[Type[geometry.Polygon], None],
-               custom_noise: Union[np.ndarray, None]
-               ) -> float:
+              x: np.ndarray,
+              y: np.ndarray,
+              u: np.ndarray,
+              v: np.ndarray,
+              polygon: Union[Type[geometry.Polygon], None],
+              custom_noise: Union[np.ndarray, None]
+              ) -> float:
     """
     Function to calculate beta noise value based on input data.
 

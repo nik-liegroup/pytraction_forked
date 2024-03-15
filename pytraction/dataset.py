@@ -38,7 +38,7 @@ class Dataset(object):
     def __getitem__(self, idx):
         if isinstance(idx, int):
             if idx > self.__len__():
-                msg = "index out of range"
+                msg = "Index out of range."
                 raise IndexError(msg)
             with h5py.File(self.log) as f:
                 row = {

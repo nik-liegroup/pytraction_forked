@@ -14,6 +14,30 @@ from scipy.sparse import linalg as splinalg
 from pytraction.dataset import Dataset
 
 
+def bead_density(img: np.ndarray) -> float:
+    """
+    Calculate bead density from image frame.
+    """
+    # Normalize image and enhance grayscale-contrast
+    clahe_img = clahe(img)
+    # Binarize image using threshold and normalize to values between [0, 1]
+    norm = (
+        cv2.adaptiveThreshold(
+            clahe_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2
+        )
+        / 255
+    )
+
+    ones = len(norm[norm == 1])  # Calculate number of beads
+
+    # Calculate total area of image and bead density
+    area = img.shape[0] * img.shape[1]
+    area_beads = ones / area
+
+    return area_beads
+
+
+
 def align_slice(img: np.ndarray,
                 ref: np.ndarray) -> Tuple[int, int, np.ndarray]:
     """
@@ -121,13 +145,6 @@ def interp_vec2grid(
 
     return grid_mat, u, int(i_max), int(j_max)
 
-def normalize(x: np.ndarray) -> np.ndarray:
-    """
-    Normalizes pixel intensity values to the range [0, 255], corresponding to 8-bit pixel values.
-    """
-    x = (x - np.min(x)) / (np.max(x) - np.min(x))  # Spreads the range to [0, 1]
-    return np.array(x * 255, dtype="uint8")  # Array is explicitly cast to unsigned 8-bit integer
-
 
 def clahe(data: np.ndarray) -> np.ndarray:
     """
@@ -143,30 +160,6 @@ def clahe(data: np.ndarray) -> np.ndarray:
     limg = cv2.merge((cl, a, b))  # Merge modified L channel with original A and B channels
     return cv2.cvtColor(limg, cv2.COLOR_LAB2RGB)[:, :, 0]  # Convert enhanced LAB image back to RGB color space but
     # return only the L channel, which is the grayscale-enhanced image.
-
-
-def bead_density(img: np.ndarray) -> float:
-    """
-    Calculate bead density from image frame.
-    """
-
-    # Normalize image and enhance grayscale-contrast
-    clahe_img = clahe(normalize(img))  # ToDO: Normalized twice when called from process_stack -> _get_min_window_size
-    # Binarize image using threshold and normalize to values between [0, 1]
-    norm = (
-        cv2.adaptiveThreshold(
-            clahe_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2
-        )
-        / 255
-    )
-
-    ones = len(norm[norm == 1])  # Calculate number of beads
-
-    # Calculate total area of image and bead density
-    area = img.shape[0] * img.shape[1]
-    area_beads = ones / area
-
-    return area_beads
 
 
 def remove_boarder_from_aligned(aligned_img: np.ndarray,
@@ -211,14 +204,14 @@ def plot(
     if isinstance(frames, int):
         frames = np.asarray([frames], dtype=int)
 
-    traction_map, cell_roi, pos, pos_dim, vec, L = [], [], [], [], [], []
+    traction_map, tf_dim, cell_roi, pos, vec, L = [], [], [], [], [], []
 
     # Find the most common image dimension in the time-series
     for frame in frames:
         frame = int(frame)
-        dim_tmp = log[frame]["pos"][0]
-        pos_dim.append(len(dim_tmp[0]))
-    comm_dim = max(set(pos_dim), key=pos_dim.count)
+        dim_tmp = log[frame]["traction_map"][0]
+        tf_dim.append(len(dim_tmp[0]))
+    comm_dim = max(set(tf_dim), key=tf_dim.count)
 
     # Iterate over time-series results
     for frame in frames:
@@ -226,7 +219,7 @@ def plot(
         log_frame = log[frame]
 
         # Filter images with dimensions different from most commmon dimension
-        if len(log_frame["pos"][0][0]) != comm_dim:
+        if len(log_frame["traction_map"][0][0]) != comm_dim:
             continue
 
         traction_map.append(log_frame["traction_map"][0])
@@ -236,23 +229,25 @@ def plot(
         L.append(log_frame["L"][0])
 
     # Calculate mean fields and values for time-series
-    traction_map_mean = np.mean(traction_map, axis=0)
-    cell_roi_mean = cell_roi[0]
+
+    traction_map_sum = np.sum(traction_map, axis=0)
+
+    cell_roi = cell_roi[0]
     x, y = pos[0]
-    u_mean, v_mean = np.mean(vec, axis=0)
+    u_sum, v_sum = np.sum(vec, axis=0)
     L_mean = np.mean(L)
-    vmax = np.max(traction_map_mean) if not vmax else vmax
+    vmax = np.max(traction_map_sum) if not vmax else vmax
 
     fig, ax = plt.subplots(1, 2, figsize=figsize)
     im1 = ax[0].imshow(
-        traction_map_mean,
+        traction_map_sum,
         interpolation="bicubic",
         cmap="jet",
         extent=[x.min(), x.max(), y.min(), y.max()],
         vmin=0,
         vmax=vmax,
     )
-    ax[0].quiver(x, y, u_mean, v_mean)
+    ax[0].quiver(x, y, u_sum, v_sum)
 
     if mask and log[0]["mask_roi"][0].shape:
         mask = log[0]["mask_roi"][0]
@@ -262,7 +257,7 @@ def plot(
     divider1 = make_axes_locatable(ax[0])
     cax1 = divider1.append_axes("right", size="5%", pad=0.05)
 
-    im2 = ax[1].imshow(cell_roi_mean, cmap="gray", vmax=np.max(cell_roi_mean))
+    im2 = ax[1].imshow(cell_roi, cmap="gray", vmax=np.max(cell_roi))
 
     cbar = fig.colorbar(im1, cax=cax1)
     cbar.set_label("Traction stress [Pa]", rotation=270, labelpad=20, size=20)
