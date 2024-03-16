@@ -3,6 +3,7 @@ import io
 import os
 import pickle
 from typing import Tuple, Type, Union, Any
+from shapely import geometry
 import h5py
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -242,7 +243,7 @@ def process_stack(
         bead_channel: int = 1,
         cell_channel: int = 0,
         crop: bool = False,
-        custom_noise: Union[np.ndarray, None] = None
+        noise: Union[np.ndarray, Type[geometry.Polygon], None] = None
 ) -> type(Dataset):
     """
     Central function to calculate PIV, traction map & save results to HDF5 file.
@@ -254,7 +255,7 @@ def process_stack(
     @param  cell_channel: Cell channel occurrence (0 or 1).
     @param  roi: ROI data as returned from load_data function.
     @param  crop: Crop the image to the selected ROI with a border margin of 10%.
-    @param  custom_noise: Image stack used for noise calculations.
+    @param  noise: Image stack or polygon used for noise calculations.
     """
     # Check if config is instance of TractionForceConfig
     if not isinstance(config, TractionForceConfig):
@@ -294,17 +295,17 @@ def process_stack(
             # Crop targets to polygon selection
             img, ref, cell_img, mask = create_crop_mask_targets(img, ref, cell_img, pts, crop)
 
-            # ToDo: Up to here (15.03.24)
             # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
-            x, y, u, v, (stack, dx, dy) = iterative_piv(img, ref, config)
+            x, y, u, v, dx, dy, drift_corrected_stack = iterative_piv(img, ref, config)
 
             # Calculate noise value beta inside ROI, segmented cell or whole image
-            beta = get_noise(config, x, y, u, v, polygon, custom_noise=custom_noise)
+            beta = get_noise(x, y, u, v, polygon, noise=noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
             pos = np.array([x.flatten(), y.flatten()])
             vec = np.array([u.flatten(), v.flatten()])
 
+            # ToDo: 16.03.24
             # Interpolate displacement field onto rectangular grid using meshsize
             # ToDO: Check if reference frame update vec = vec + pos is necessary
             grid_mat, u, i_max, j_max = interp_vec2grid(pos, vec, config.config["tfm"]["meshsize"], [])
@@ -327,8 +328,8 @@ def process_stack(
 
             # if evidence_one != None:
             # Write results for the current frame to the HDF5 file
-            results = write_frame_results(results, frame, traction_map, f_n_m, stack, cell_img, mask, beta, l_optimal,
-                                          pos, vec)
+            results = write_frame_results(results, frame, traction_map, f_n_m, drift_corrected_stack, cell_img, mask,
+                                          beta, l_optimal, pos, vec)
 
         # Write metadata to the results file
         write_metadata_results(results, config.config)

@@ -1,10 +1,9 @@
-
 import numpy as np
 import h5py
 from typing import Tuple, Type, Union, Any
 
 from shapely import geometry
-from pytraction.utils import align_slice, bead_density
+from pytraction.utils import bead_density
 
 
 def _get_raw_frames(img_stack: np.ndarray, ref_stack: Union[np.ndarray, None], frame: int, bead_channel: int,
@@ -49,33 +48,6 @@ def get_min_window_size(img: np.ndarray, config) -> int:
 
     else:
         return config.config["piv"]["min_window_size"]
-
-
-def _find_uv_outside_single_polygon(
-        x: np.ndarray,
-        y: np.ndarray,
-        u: np.ndarray,
-        v: np.ndarray,
-        polygon: Type[geometry.Polygon]  # Todo: Remove comma?
-) -> np.ndarray:  # Returns (un, vn) array with noisy u and v components
-    """
-    Function to find u and v deformation field components outside a single polygon.
-
-    @param  x: x-position of deformation vector
-    @param  y: y-position of deformation vector
-    @param  u: u-component of deformation vector
-    @param  v: v-component of deformation vector
-    @param polygon: shapely polygon to test which (x_i, y_i) is within
-    """
-    # Create empty list
-    noise = []
-
-    # Flatten multi-dim. arrays to 1D array and combine them element-wise, e.g. [(*,*,*,*), (*,*,*,*), ...]
-    for (x0, y0, u0, v0) in zip(x.flatten(), y.flatten(), u.flatten(), v.flatten()):
-        p1 = geometry.Point([x0, y0])  # Creates shapely point for each tuple (x0, y0, u0, v0) at coordinates (x0, y0)
-        if not p1.within(polygon):
-            noise.append(np.array([u0, v0]))  # Add (u0, v0) to noise list if not in polygon
-    return np.array(noise)
 
 
 def write_frame_results(

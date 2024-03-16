@@ -1,56 +1,104 @@
-from typing import Tuple
-
 import numpy as np
-from openpiv import widim
 
+from typing import Tuple
+import cv2
+from openpiv import widim
 from pytraction.fourier import fourier_xu, reg_fourier_tfm
 from pytraction.optimal_lambda import optimal_lambda
-from pytraction.utils import align_slice, remove_boarder_from_aligned, interp_vec2grid
-from pytraction.postprocess import strain_energy, contraction_moments, contraction_moments_ft
+from pytraction.utils import remove_boarder_from_aligned, interp_vec2grid
 
 
-def iterative_piv(img: np.ndarray,
-                  ref: np.ndarray,
-                  config
-                  ):  # ToDo: Problems with defining output types as Tuple[...]
+def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
     """
-    Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy) and displacement vectors (u,v)
-    for positions (x,y).
+    Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy), displacement vectors (u,v)
+    for positions (x,y) and image stack.
     """
+    # Check if displacements are too small, which would result in an iterative decrease in window size
     if np.allclose(img, ref, rtol=1e-05, atol=1e-08):
-        raise ValueError("Image and reference fram are approximately equal (Tolerance: 1e-05).")
-    dx, dy, img = align_slice(img, ref)  # Get drift in x,y and drift corrected img
+        msg = "Image and reference frame are approximately equal (Tolerance: 1e-05)."
+        raise RuntimeError(msg)
+
+    # Calculate drift in x,y and return drift corrected img
+    dx, dy, img = align_slice(img, ref)
     if config.config["settings"]["crop_aligned_slice"]:
-        img, ref = remove_boarder_from_aligned(img, ref)  # Crop img and ref to remove black borders
-    stack = np.stack([img, ref])  # Creates stack from img and ref
+        # Crop images to remove black borders
+        img, ref = remove_boarder_from_aligned(img, ref)
+
+    # Calculate displacement field
     x, y, u, v, mask = compute_piv(img, ref, config)
 
-    return x, y, u, v, (stack, dx, dy)
+    # Create drift corrected stack
+    drift_corrected_stack = np.stack([img, ref])
+
+    return x, y, u, v, dx, dy, drift_corrected_stack
+
+
+def align_slice(img: np.ndarray, ref: np.ndarray) -> Tuple[int, int, np.ndarray]:
+    """
+    Given a bead and reference image, compute the drift using cv2.matchTemplate and return the drift corrected bead
+    image along with the x drift (dx) and y drift (dy). The dx, dy shift is a measure of how much the image has moved
+    with respect to the reference frame.
+    """
+    # Set window size in reference frame used for drift correction
+    depth = int(min(img.shape) * 0.1)
+
+    # Slide reference image (w x h) over input image (W x H) and calculate correlation landscape (W-w+1, H-h+1)
+    # Assumes no displacements to be present in top left corner
+    ccorr_normed = cv2.matchTemplate(
+        img, ref[depth:-depth, depth:-depth], cv2.TM_CCORR_NORMED
+    )
+
+    # Flatten array and find index of maximal correlation
+    ccorr_max_id = np.argmax(ccorr_normed, axis=None)
+
+    # Convert flattened index back into a tuple of coordinates, describing top left corner of target rectangle
+    max_ccorr = np.unravel_index(
+        ccorr_max_id, ccorr_normed.shape
+    )
+
+    # Transform location of best match from correlation landscape to coordinate system of reference image
+    # CC landscape is depth smaller in both x and y dimension
+    dy = depth - max_ccorr[0]
+    dx = depth - max_ccorr[1]
+    rows, cols = img.shape
+
+    # Initialize 2x3 transformation matrix
+    # [[a, b, tx],
+    # [c, d, ty]] -> a,d = 1: no scaling in x,y ; b,c = 0: no shearing or rotation ; tx, ty: translations
+    matrix = np.float32([[1, 0, dx], [0, 1, dy]])
+
+    # Apply transformation to input image
+    img = cv2.warpAffine(img, matrix, (cols, rows))
+
+    return dx, dy, img
 
 
 def compute_piv(img: np.ndarray,
                 ref: np.ndarray,
                 config) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Compute PIV using a window displacement iterative method with implementation of window size coarsening.
+    Compute deformation field using particle image velocimetry (PIV) with an implementation of window size coarsening.
     """
-
+    # Select whole image for PIV
+    mask = np.ones_like(ref).astype(np.int32)
     try:
-        # Compute PIV using the window displacement iterative method implemented by openpiv
+        # Compute PIV using a window displacement iterative method
         x, y, u, v, mask = widim.WiDIM(  # Returns displacement vectors (u,v) for positions (x,y)
             ref.astype(np.int32),
             img.astype(np.int32),
-            np.ones_like(ref).astype(np.int32),  # Mark whole image to be used for computation
+            mask,
             **config.config["piv"],  # Unpack and pass the contents of a dictionary as keyword arguments
         )
-        return x, y, u, v, mask  # Mask from widim.WiDIM function call
+        return x, y, u, v, mask
     except Exception as e:
         if isinstance(e, ZeroDivisionError):
-            config.config["piv"]["min_window_size"] = (
+            # Reduce window size and call compute_piv again
+            config_tmp = config.copy()
+            config_tmp.config["piv"]["min_window_size"] = (
                 config.config["piv"]["min_window_size"] // 2
             )
             print(
-                f"Reduced min window size to {config.config['piv']['min_window_size']} in recursive call"
+                f"Reduced min window size to {config_tmp.config['piv']['min_window_size'] // 2} in recursive call"
             )
             return compute_piv(img, ref, config)
         else:

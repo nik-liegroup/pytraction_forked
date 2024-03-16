@@ -2,10 +2,11 @@ import cv2
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 
-from pytraction.utils import (align_slice, bead_density, clahe,
+from pytraction.utils import (bead_density, clahe,
                               interp_vec2grid, plot,
                               sparse_cholesky)
 from pytraction.preprocess import normalize
+from pytraction.process import align_slice
 
 
 def test_align_slice():

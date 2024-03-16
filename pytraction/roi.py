@@ -121,12 +121,12 @@ def get_polygon_and_roi(cell_img: np.ndarray,
     """
     Returns polygon shape of cell outline from CNN model prediction or ROI definition.
     """
-    if config.config["settings"]["segment"]:
-        # Segments cell using CNN model and return x, y coordinates for shape
-        polyx, polyy = _predict_roi(cell_img, config)  # Predict coordinates of cell outline
-    elif roi:
+    if roi:
         # Get x, y coordinates from ROI
         polyx, polyy = roi[0], roi[1]
+    elif config.config["settings"]["segment"]:
+        # Segments cell using CNN model and return x, y coordinates for shape
+        polyx, polyy = _predict_roi(cell_img, config)  # Predict coordinates of cell outline
     else:
         return None, None
 

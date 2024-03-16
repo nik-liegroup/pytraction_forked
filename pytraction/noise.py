@@ -1,105 +1,78 @@
-# Import general libraries and modules
 import os
 import pickle
 import tempfile
-from typing import Tuple, Type, Union, Any
 import numpy as np
 import tifffile
+
+from typing import Tuple, Type, Union, Any
 from shapely import geometry
-
-# Import custom modules from the 'pytraction' package
 from pytraction.process import iterative_piv
-from pytraction.preprocess import _find_uv_outside_single_polygon, normalize
+from pytraction.preprocess import normalize
 
 
-def custom_noise(tiff_stack: np.ndarray,
-                 config: dict
-                 ) -> float:
-    """
-    Function to calculate custom noise value beta, representing the reciprocal of the variance of noise in a given image
-    stack.
-
-    @param  tiff_stack: Image stack in .tiff format
-    @param  config: Configuration file for TFM Analysis
-    """
-    tmpdir = tempfile.gettempdir()  # Get system's temporary directory
-    destination = f"{tmpdir}/tmp_noise.pickle"  # Define path to save cache file
-    cache = dict()
-
-    # Check if cache file with beta values for specific image stack already exists to save time
-    if os.path.exists(destination):
-        with open(destination, "rb") as f:
-            cache = pickle.load(f)  # Load previous computed noise data
-        beta = cache.get(tiff_stack, None)  # Check if there is a beta value for the current tiff_stack
-
-        if beta:
-            return beta  # Returns value immediately if present
-
-    # Calculate beta value
-    tiff_noise_stack = tifffile.imread(tiff_stack)  # Reads in images of (t,w,h) form
-    un, vn = np.array([]), np.array([])  # Arrays to store components of displacement vectors
-
-    # Calculate maximum between number of (time-frames - 1) and 2
-    # This ensures that there are enough frames for beta calculations
-    max_range = max(tiff_noise_stack.shape[0] - 1, 2)
-
-    for i in range(max_range):  # Iterates at least over index 0 and 1
-        # Select two subsequent images
-        img = normalize(tiff_noise_stack[i, :, :])
-        ref = normalize(tiff_noise_stack[i + 1, :, :])  # ToDo: Index out of boundary exception if less than 2?
-
-        # Particle Image Velocimetry between img and ref
-        # 'iterative_piv' from pytraction.process
-        x, y, u, v, stack = iterative_piv(img, ref, config)  # Returns vectors and positions
-
-        # Append u,v to un and vn arrays
-        un = np.append(un, u)
-        vn = np.append(vn, v)
-
-    noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
-    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
-    beta = 1 / var_noise  # Reciprocal represents quality of PIV operation and is a measure of the inverse noise level
-    cache[tiff_stack] = beta  # Save beta value with 'tiff_stack' as key
-
-    # Save cache file to system's temporary directory
-    with open(destination, "wb") as f:
-        pickle.dump(cache, f)
-
-    return beta  # ToDo: Call noise measurement in PIV function to avoid double calculation of displacement field
-
-
-def get_noise(config,
-              x: np.ndarray,
+def get_noise(x: np.ndarray,
               y: np.ndarray,
               u: np.ndarray,
               v: np.ndarray,
               polygon: Union[Type[geometry.Polygon], None],
-              custom_noise: Union[np.ndarray, None]
+              noise: Union[np.ndarray, Type[geometry.Polygon], None]
               ) -> float:
     """
     Function to calculate beta noise value based on input data.
-
-    @param  x: x-position of deformation vector
-    @param  y: y-position of deformation vector
-    @param  u: u-component of deformation vector
-    @param  v: v-component of deformation vector
-    @param  polygon: shapely polygon to test which (x_i, y_i) is within
-    @param  custom_noise: Image stack in .tiff format
+    @param  x: x-position of deformation vector.
+    @param  y: y-position of deformation vector.
+    @param  u: u-component of deformation vector.
+    @param  v: v-component of deformation vector.
+    @param  polygon: Shapely polygon to test which (x_i, y_i) is within geometry.
+    @param  noise: Image stack in .tiff format or shapely polygon.
     """
-
-    # If ROI (polygon) is set, use vectors outside of polygon for noise calculation
-    if polygon:
-        noise_vec = _find_uv_outside_single_polygon(x=x, y=y, u=u, v=v, polygon=polygon)
-    # If custom_noise is provided in form of a tiff_stack, calculate and return beta value
-    elif custom_noise:
-        return custom_noise(tiff_stack=custom_noise, config=config)
-    # Else calculate beta value in small region of image
+    if type(noise) is np.ndarray:
+        # Use noise stack for calculation of beta
+        noise_vec = np.array([noise[:, 0].flatten(), noise[:, 1].flatten()])
+    elif type(noise) is type(geometry.Polygon):
+        # Use custom noise polygon for calculation of beta
+        noise_vec = find_uv_from_polygon(x=x, y=y, u=u, v=v, polygon=noise, outside=False)
+    elif polygon is not None:
+        # Find vectors outside of polygon for noise calculations
+        noise_vec = find_uv_from_polygon(x=x, y=y, u=u, v=v, polygon=polygon, outside=True)
     else:
-        noise = 10  # Constant for used image size
-        xn, yn, un, vn = x[:noise], y[:noise], u[:noise], v[:noise]  # ToDo: xn, yn unused
-        noise_vec = np.array([un.flatten(), vn.flatten()])  # Flatten displacement vectors and concatenate them
+        # Use vectors contained in a small stripe along the top image border for noise calculations
+        noise_square = 10
+        un, vn = u[:noise_square, :], v[:noise_square, :]
+        noise_vec = np.array([un.flatten(), vn.flatten()])
 
-    var_noise = np.var(noise_vec)  # Calculate variance of noise vector
-    beta = 1 / var_noise  # Reciprocal of displacement variance is a measure of the inverse noise level
+    # Calculate variance of noise vector
+    var_noise = np.var(noise_vec)
+
+    # Reciprocal of displacement variance is a measure of inverse noise level
+    beta = 1 / var_noise
 
     return beta
+
+
+def find_uv_from_polygon(
+        x: np.ndarray,
+        y: np.ndarray,
+        u: np.ndarray,
+        v: np.ndarray,
+        polygon: Type[geometry.Polygon],
+        outside: bool
+) -> np.ndarray:
+    """
+    Find u and v deformation field components outside a single polygon.
+    """
+    # Create empty list to store vector components
+    noise = []
+
+    # Iterate over vector components with their respective positional coordinates
+    for (x0, y0, u0, v0) in zip(x.flatten(), y.flatten(), u.flatten(), v.flatten()):
+        # Creates shapely point at coordinates (x0, y0)
+        point = geometry.Point([x0, y0])
+        if (not point.within(polygon)) and outside:
+            # Appends displacement vector if outside of polygon
+            noise.append(np.array([u0, v0]))
+        elif (point.within(polygon)) and (not outside):
+            # Appends displacement vector if inside of polygon
+            noise.append(np.array([u0, v0]))
+
+    return np.array(noise)
