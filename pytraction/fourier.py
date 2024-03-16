@@ -1,37 +1,34 @@
 import numpy as np
 from scipy.sparse import spdiags
+from scipy.fft import fftfreq, ifft2, fft2
 
 
 def fourier_xu(
-        u: np.ndarray,
-        i_max: int,
-        j_max: int,
+        vec: np.ndarray,
         E: float,
         s: float,
         meshsize: float
 ):
     """
-    Transform displacement field u to Fourier space. The fourier transform of a 2D vector field are two FT of
-    the respective x- and y-scalar fields. Again merging these two scalar fields yields the corresponding vector field
-    in fourier space. There, the length and orientation of each vector represents the amplitude and phase of a frequency
-    component.
-    Returns the differential operator (X) acting on Fourier-transformed displacement fields, 2D Fourier transform
-    components of displacement field (ftux, ftuy) and the fourier transformed displacement field u.
+    Transform displacement vector field to fourier space and calculate differential operator FT(X), representing the
+    Boussinesq convolution. The fourier transform of a 2D vector field equals two FT of the respective x- and y-scalar
+    fields. Merging those two scalar fields yields the corresponding vector field in fourier space. There, the length
+    and orientation of each vector represents the amplitude and phase of a frequency component.
 
-    @param  u: Displacement field containing positions and vectors
-    @param  i_max:
-    @param  j_max:
+    @param  vec: Displacement vector field
     @param  E: Elastic modulus of substrate in Pa
     @param  s: Poisson's ratio of substrate
     @param  meshsize: Defines meshsize of rectangular grid to interpolate displacement field on.
     """
     # Calculate 2D Fourier transform of displacement field components
-    ftux = np.fft.fft2(u[:, :, 0]).T  # FT of x component of u
-    ftuy = np.fft.fft2(u[:, :, 1]).T # FT of y component of u
+    ft_ux = fft2(vec[:, :, 0]).T
+    ft_uy = fft2(vec[:, :, 1]).T
 
     # Calculate an array of representable spatial frequencies (Natural numbers) in a discrete system up to the Nyquist
     # frequency and scale it with 2pi/(i_max * meshsize) to get the corresponding wave vectors
-    # ToDo: Consider re-arranging k-field to represent ascending values
+    i_max = vec.shape[0]
+    j_max = vec.shape[1]
+
     kx_vec = (
         2
         * np.pi
@@ -49,14 +46,15 @@ def fourier_xu(
     )
 
     # Creates rectangular grid from every combination of provided kx and ky coordinates
-    kxx, kyy = np.meshgrid(kx_vec, ky_vec, indexing='ij')  # kx and ky are both 2D matrices
+    kxx, kyy = np.meshgrid(kx_vec, ky_vec, indexing='ij')
 
     # Calculate the wave vectors magnitudes
     k = np.sqrt(kxx ** 2 + kyy ** 2)
     k[0, 0] = 1
 
     # Calculate fourier transform of Boussinesq solution (Green's function) given a point traction
-    conf = 2 * (1 + s) / (E * k ** 3)  # Define coefficient
+    # Define coefficient
+    conf = 2 * (1 + s) / (E * k ** 3)
 
     # Derive components of the Green's function matrix
     gf_xx = conf * ((1 - s) * k ** 2 + s * kyy ** 2)
@@ -102,7 +100,7 @@ def fourier_xu(
     # Create 2D sparse matrix representing the differential operator acting on Fourier-transformed displacement fields
     X = spdiags(data, (-1, 0, 1), len(x1), len(x1))
 
-    return ftux, ftuy, kxx, kyy, i_max, j_max, X
+    return ft_ux, ft_uy, kxx, kyy, X
 
 
 def reg_fourier_tfm(
@@ -114,8 +112,6 @@ def reg_fourier_tfm(
     E: float,
     s: float,
     meshsize: float,
-    i_max: int,
-    j_max: int,
     scaling_factor: float = None,
     zdepth: float = 0,
     grid_mat: np.ndarray = [],
@@ -133,13 +129,14 @@ def reg_fourier_tfm(
     @param  E: Young's modulus of culture substrate in Pa
     @param  s: Poisson's ratio of substrate
     @param  meshsize: Specifies number of grid intervals to interpolate displacement field on
-    @param  i_max:
-    @param  j_max:
     @param  scaling_factor: Pixels per micrometer
     @param  zdepth: Distance between gel surface and imaging plane (Must be a positive number)
     @param  grid_mat:
     @param  slim:
     """
+    i_max = ftux.shape[0]
+    j_max = ftuy.shape[1]
+
     # Define coefficient
     v = 2 * (1 + s) / E
     k = np.sqrt(kx ** 2 + ky ** 2)

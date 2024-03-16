@@ -1,9 +1,6 @@
-# Import general libraries and modules
 import io
 import os
 import pickle
-from typing import Tuple, Type, Union, Any
-from shapely import geometry
 import h5py
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -11,17 +8,17 @@ import tifffile
 import torch
 import yaml
 
-# Import custom modules from the 'pytraction' package
+from typing import Tuple, Type, Union, Any
+from shapely import geometry
 from pytraction.dataset import Dataset
 from pytraction.net.dataloader import get_preprocessing
 from pytraction.preprocess import (get_min_window_size,
                                    _get_raw_frames,
                                    write_frame_results,
                                    write_metadata_results)
-from pytraction.process import calculate_traction_map, iterative_piv
+from pytraction.process import calculate_traction_map, iterative_piv, interp_vec2grid
 from pytraction.roi import roi_loaders, load_frame_roi, create_crop_mask_targets, get_polygon_and_roi
 from pytraction.noise import get_noise
-from pytraction.utils import interp_vec2grid
 
 
 class TractionForceConfig(object):
@@ -243,7 +240,7 @@ def process_stack(
         bead_channel: int = 1,
         cell_channel: int = 0,
         crop: bool = False,
-        noise: Union[np.ndarray, Type[geometry.Polygon], None] = None
+        noise: Union[np.ndarray, Type[geometry.Polygon], int] = 10
 ) -> type(Dataset):
     """
     Central function to calculate PIV, traction map & save results to HDF5 file.
@@ -255,7 +252,9 @@ def process_stack(
     @param  cell_channel: Cell channel occurrence (0 or 1).
     @param  roi: ROI data as returned from load_data function.
     @param  crop: Crop the image to the selected ROI with a border margin of 10%.
-    @param  noise: Image stack or polygon used for noise calculations.
+    @param  noise: Integer specifies height of rectangle at top border of image which marks the region of displacement
+    vectors used for noise calculation. Alternatively, region can be defined more specifically by passing polygon shape
+    or custom array of flattened displacement vector components.
     """
     # Check if config is instance of TractionForceConfig
     if not isinstance(config, TractionForceConfig):
@@ -293,43 +292,39 @@ def process_stack(
             polygon, pts = get_polygon_and_roi(cell_img=cell_img, roi=roi_i, config=config)
 
             # Crop targets to polygon selection
-            img, ref, cell_img, mask = create_crop_mask_targets(img, ref, cell_img, pts, crop)
+            img, ref, cell_img, mask = create_crop_mask_targets(img=img, ref=ref, cell_img=cell_img, pts=pts, crop=crop)
 
             # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
-            x, y, u, v, dx, dy, drift_corrected_stack = iterative_piv(img, ref, config)
+            x, y, u, v, dx, dy, drift_corrected_stack = iterative_piv(img=img, ref=ref, config=config)
 
             # Calculate noise value beta inside ROI, segmented cell or whole image
-            beta = get_noise(x, y, u, v, polygon, noise=noise)
+            beta = get_noise(x=x, y=y, u=u, v=v, polygon=polygon, noise=noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
-            pos = np.array([x.flatten(), y.flatten()])
-            vec = np.array([u.flatten(), v.flatten()])
+            pos_flat = np.array([x.flatten(), y.flatten()])
+            vec_flat = np.array([u.flatten(), v.flatten()])
 
-            # ToDo: 16.03.24
+            # ToDO: Check if reference frame update pos = vec + pos is necessary
+            # pos = pos + vec
+
             # Interpolate displacement field onto rectangular grid using meshsize
-            # ToDO: Check if reference frame update vec = vec + pos is necessary
-            grid_mat, u, i_max, j_max = interp_vec2grid(pos, vec, config.config["tfm"]["meshsize"], [])
-
-            # TESTING
-            vec = np.array([u[:, :, 0].flatten(), u[:, :, 1].flatten()])
-            pos = np.array([grid_mat[:, :, 0].flatten(), grid_mat[:, :, 1].flatten()])
-            # TESTING
+            interp_pos, interp_vec = interp_vec2grid(pos_flat=pos_flat, vec_flat=vec_flat,
+                                                     meshsize=config.config["tfm"]["meshsize"])
 
             # Compute traction map, force field, and L_optimal
             traction_map, f_n_m, l_optimal, evidence_one = calculate_traction_map(
-                pos,
-                vec,
-                beta,
-                config.config["tfm"]["meshsize"],
-                config.config["tfm"]["s"],
-                config.config["tfm"]["pix_per_mu"],
-                config.config["tfm"]["E"],
+                pos=interp_pos,
+                vec=interp_vec,
+                beta=beta,
+                meshsize=config.config["tfm"]["meshsize"],
+                s=config.config["tfm"]["s"],
+                pix_per_mu=config.config["tfm"]["pix_per_mu"],
+                E=config.config["tfm"]["E"]
             )
 
-            # if evidence_one != None:
             # Write results for the current frame to the HDF5 file
             results = write_frame_results(results, frame, traction_map, f_n_m, drift_corrected_stack, cell_img, mask,
-                                          beta, l_optimal, pos, vec)
+                                          beta, l_optimal, pos_flat, vec_flat)
 
         # Write metadata to the results file
         write_metadata_results(results, config.config)

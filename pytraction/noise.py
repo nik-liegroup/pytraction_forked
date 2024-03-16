@@ -1,13 +1,7 @@
-import os
-import pickle
-import tempfile
 import numpy as np
-import tifffile
 
 from typing import Tuple, Type, Union, Any
 from shapely import geometry
-from pytraction.process import iterative_piv
-from pytraction.preprocess import normalize
 
 
 def get_noise(x: np.ndarray,
@@ -15,7 +9,7 @@ def get_noise(x: np.ndarray,
               u: np.ndarray,
               v: np.ndarray,
               polygon: Union[Type[geometry.Polygon], None],
-              noise: Union[np.ndarray, Type[geometry.Polygon], None]
+              noise: Union[np.ndarray, Type[geometry.Polygon], int]
               ) -> float:
     """
     Function to calculate beta noise value based on input data.
@@ -24,22 +18,24 @@ def get_noise(x: np.ndarray,
     @param  u: u-component of deformation vector.
     @param  v: v-component of deformation vector.
     @param  polygon: Shapely polygon to test which (x_i, y_i) is within geometry.
-    @param  noise: Image stack in .tiff format or shapely polygon.
+    @param  noise: Flattened displacement vector components, polygon or stripe height used for noise calculations.
     """
     if type(noise) is np.ndarray:
         # Use noise stack for calculation of beta
-        noise_vec = np.array([noise[:, 0].flatten(), noise[:, 1].flatten()])
-    elif type(noise) is type(geometry.Polygon):
+        noise_vec = noise
+    elif type(noise) is geometry.Polygon:
         # Use custom noise polygon for calculation of beta
         noise_vec = find_uv_from_polygon(x=x, y=y, u=u, v=v, polygon=noise, outside=False)
     elif polygon is not None:
         # Find vectors outside of polygon for noise calculations
         noise_vec = find_uv_from_polygon(x=x, y=y, u=u, v=v, polygon=polygon, outside=True)
-    else:
+    elif type(noise) is int:
         # Use vectors contained in a small stripe along the top image border for noise calculations
-        noise_square = 10
-        un, vn = u[:noise_square, :], v[:noise_square, :]
+        un, vn = u[:noise, :], v[:noise, :]
         noise_vec = np.array([un.flatten(), vn.flatten()])
+    else:
+        msg = "Noise calculation failed, please provide proper data types."
+        raise RuntimeError(msg)
 
     # Calculate variance of noise vector
     var_noise = np.var(noise_vec)
