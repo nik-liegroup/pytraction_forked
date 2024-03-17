@@ -149,13 +149,14 @@ def optimal_lambda(
         import matplotlib.pyplot as plt
         plt.plot(alpha, logevidence, 'g')
         plt.axvline(x=alpha_opt, color='b')
-        #plt.show()
+        plt.show()
         plt.close()
         ###
 
         evidence_one = -target(alpha_opt)
         lambda_2 = alpha_opt / beta
 
-        print(f'Alpha value too close to boundary, found new evidence value: {evidence_one} with new alpha value: {alpha_opt} using gradient method')
+        print(f'Alpha value too close to boundary, found new evidence value: {evidence_one} with new alpha value: \
+        {alpha_opt} using gradient method')
 
     return lambda_2, None, evidence_one

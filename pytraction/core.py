@@ -311,12 +311,11 @@ def process_stack(
             interp_pos, interp_vec = interp_vec2grid(pos_flat=pos_flat, vec_flat=vec_flat,
                                                      meshsize=config.config["tfm"]["meshsize"])
 
-            # Compute traction map, force field, and L_optimal
+            # Compute traction field from displacement field using Boussinesq equation and tikhonov regularization
             traction_map, f_n_m, l_optimal, evidence_one = calculate_traction_map(
                 pos=interp_pos,
                 vec=interp_vec,
                 beta=beta,
-                meshsize=config.config["tfm"]["meshsize"],
                 s=config.config["tfm"]["s"],
                 pix_per_mu=config.config["tfm"]["pix_per_mu"],
                 E=config.config["tfm"]["E"]

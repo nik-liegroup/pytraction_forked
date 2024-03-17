@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import spdiags
+from scipy.sparse import diags
 
 
 # Shape function for boundary element method
@@ -15,39 +15,16 @@ def pyramid2dim_ft(kxx, kyy, width_x, width_y):
 
 # Crate differential operator matrix
 def diff_operator(ft_gxx, ft_gxy, ft_gyy):
-    # Get shape of block matrices
-    i_max = (np.shape(ft_gxx)[0])
-    j_max = (np.shape(ft_gyy)[1])
-
-    g1 = ft_gxx.reshape(1, i_max * j_max)
-    g2 = ft_gyy.reshape(1, i_max * j_max)
-    g3 = ft_gxy.reshape(1, i_max * j_max)
-    g4 = np.zeros(g3.shape)
-
-    x1 = np.array([g1, g2]).T.flatten()
-    x2 = np.array([g3, g4]).T.flatten()
-
-    x1 = np.expand_dims(x1, axis=1)
-    x2 = np.expand_dims(x2, axis=1)
-    x3 = x2[1:]
-
-    pad = np.expand_dims(np.array([0]), axis=1)
-
-    data = np.array([np.concatenate([x3, pad]).T, x1.T, np.concatenate([pad, x3]).T])
-    data = np.squeeze(data, axis=1)  # Removes the unnecessary singleton dimension introduced by np.expand_dims
-
-    # Create 2D sparse matrix representing the Greens differential operator in Fourier space
-    gamma_glob_2 = spdiags(data, (-1, 0, 1), len(x1), len(x1))
-
-
-    # My code
-    gamma_1 = np.diagflat(ft_gxx.reshape(1, i_max * j_max))
-    gamma_2 = np.diagflat(ft_gxy.reshape(1, i_max * j_max))
+    gamma_1 = ft_gxx.flatten()
+    gamma_2 = ft_gxy.flatten()
     gamma_3 = gamma_2
-    gamma_4 = np.diagflat(ft_gyy.reshape(1, i_max * j_max))
+    gamma_4 = ft_gyy.flatten()
 
-    gamma_glob = np.block([[gamma_1, gamma_2],
-                           [gamma_3, gamma_4]])
+    diagonals = np.array([np.concatenate([gamma_1, gamma_4]).flatten(), gamma_2, gamma_3])
+
+    gamma_glob = diags(diagonals=diagonals,
+                       offsets=(0, len(gamma_2), -len(gamma_3)),
+                       shape=(2*len(gamma_1), 2*len(gamma_1)))
 
     return gamma_glob
 

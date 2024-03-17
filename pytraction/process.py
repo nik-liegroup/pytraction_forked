@@ -1,12 +1,12 @@
 import numpy as np
-
-from typing import Tuple
 import cv2
+from typing import Tuple
 from openpiv import widim
-from pytraction.fourier import fourier_xu, reg_fourier_tfm
+from scipy.interpolate import griddata
 from pytraction.optimal_lambda import optimal_lambda
 from pytraction.utils import remove_boarder_from_aligned
-from scipy.interpolate import griddata
+from pytraction.inversion import traction_fourier
+from pytraction.regularization import *
 
 
 def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
@@ -96,7 +96,7 @@ def compute_piv(img: np.ndarray,
             # Reduce window size and call compute_piv again
             config_tmp = config.copy()
             config_tmp.config["piv"]["min_window_size"] = (
-                config.config["piv"]["min_window_size"] // 2
+                    config.config["piv"]["min_window_size"] // 2
             )
             print(
                 f"Reduced min window size to {config_tmp.config['piv']['min_window_size'] // 2} in recursive call"
@@ -122,7 +122,7 @@ def interp_vec2grid(
         min_pos = [np.min(pos_flat[0]), np.min(pos_flat[1])]  # Calculate minimum value of position along x- and y-axis
 
         # Calculate size of vector field in each direction and divide by meshsize yielding the number of mesh intervals
-        i_max = np.floor((max_pos[0] - min_pos[0]) / meshsize)   # np.floor rounds result to integer number
+        i_max = np.floor((max_pos[0] - min_pos[0]) / meshsize)  # np.floor rounds result to integer number
         j_max = np.floor((max_pos[1] - min_pos[1]) / meshsize)
 
         # Ensure that number of mesh intervals are even by subtracting the remainder when divided by 2
@@ -152,28 +152,46 @@ def interp_vec2grid(
 def calculate_traction_map(pos: np.array,
                            vec: np.array,
                            beta: float,
-                           meshsize: float,
                            s: float,
                            pix_per_mu: float,
-                           E: float):
+                           E: float,
+                           method: str='FT'):
     """
-    Calculates 2D traction map given the displacement vector field and the noise value beta.
+    Calculates 2D traction map given the displacement vector field and the noise value beta using a FFT or FEM
+    (Boundary element method) approach.
     """
-    # Transform displacement field to fourier space and calculate convolution operator X
-    ft_ux, ft_uy, kxx, kyy, X = fourier_xu(vec, E, s, meshsize)
+    if method is 'FT':
+        # Calculate simple inverse solution for regularization parameter estimation
+        _, _, _, _, ft_ux, ft_uy, kxx, kyy, gamma_glob = traction_fourier(pos=pos,
+                                                                          vec=vec,
+                                                                          s=s,
+                                                                          elastic_modulus=E,
+                                                                          lambd=None,
+                                                                          scaling_factor=pix_per_mu,
+                                                                          zdepth=0)
 
-    # Calculate lambda from bayesian model
-    L, evidence, evidence_one = optimal_lambda(
-        beta, ft_ux, ft_uy, kxx, kyy, E, s, meshsize, X
-    )
+        # Predict lambda for tikhonov regularization from bayesian model
+        # ToDo: Upgrade to new function in pytraction.regularization
+        L, evidence, evidence_one = optimal_lambda(
+            beta, ft_ux, ft_uy, kxx, kyy, E, s, 8, gamma_glob
+        )
 
-    # Calculate traction field in fourier space and transform back to spatial domain
-    f_pos, f_nm_2, f_magnitude, f_n_m, ftfx, ftfy = reg_fourier_tfm(
-        ft_ux, ft_uy, kxx, kyy, L, E, s, meshsize, pix_per_mu, 0, pos
-    )
+        # Calculate traction field in fourier space and transform back to spatial domain
+        fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, gamma_glob = traction_fourier(pos=pos,
+                                                                           vec=vec,
+                                                                           s=s,
+                                                                           elastic_modulus=E,
+                                                                           lambd=L,
+                                                                           scaling_factor=pix_per_mu,
+                                                                           zdepth=0)
 
-    # Flip shapes back into position
-    traction_magnitude = f_magnitude.reshape(pos.shape[0], pos.shape[1]).T
+    else:
+        msg = ('Only fourier transform (FT) and boundary element method (BEM) are currently implemented to solve \
+         inverse problem.')
+        raise RuntimeError(msg)
+
+    traction_magnitude = np.sqrt(fx ** 2 + fy ** 2)
     traction_magnitude = np.flip(traction_magnitude, axis=0)
+    f_n_m = np.array([fx, fy])
 
     return traction_magnitude, f_n_m, L, evidence_one

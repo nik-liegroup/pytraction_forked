@@ -1,14 +1,11 @@
-import os
-import sys
-from typing import Tuple, Type, Union
-
 import cv2
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
+from typing import Tuple, Type, Union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from scipy.sparse import linalg as splinalg
+from scipy.sparse import linalg
 
 from pytraction.dataset import Dataset
 
@@ -21,10 +18,10 @@ def bead_density(img: np.ndarray) -> float:
     clahe_img = clahe(img)
     # Binarize image using threshold and normalize to values between [0, 1]
     norm = (
-        cv2.adaptiveThreshold(
-            clahe_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2
-        )
-        / 255
+            cv2.adaptiveThreshold(
+                clahe_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 2
+            )
+            / 255
     )
 
     ones = len(norm[norm == 1])  # Calculate number of beads
@@ -63,7 +60,7 @@ def sparse_cholesky(A):
         [type]: [description]
     """
     n = A.shape[0]
-    LU = splinalg.splu(A.tocsc(), diag_pivot_thresh=0)  # sparse LU decomposition
+    LU = linalg.splu(A.tocsc(), diag_pivot_thresh=0)  # sparse LU decomposition
 
     return LU.L.dot(sparse.diags(LU.U.diagonal() ** 0.5)).tocsr()
 
@@ -85,11 +82,11 @@ def clahe(data: np.ndarray) -> np.ndarray:
 
 
 def plot(
-    log: type(Dataset),
-    frames: Union[list, int] = 0,
-    vmax: float = None,
-    mask: bool = True,
-    figsize: tuple = (16, 16),
+        log: type(Dataset),
+        frames: Union[list, int] = 0,
+        vmax: float = None,
+        mask: bool = True,
+        figsize: tuple = (16, 16),
 ) -> Tuple[mpl.figure.Figure, mpl.axes.Axes]:
     """[summary]
 
@@ -170,3 +167,41 @@ def plot(
     ax[1].set_axis_off()
     plt.tight_layout()
     return fig, ax
+
+
+# Shape function for boundary element method
+def pyramid2dim(xx, yy, width_x, width_y):
+    return (np.maximum(0, width_x - np.abs(xx)) *
+            np.maximum(0, width_y - np.abs(yy)))
+
+
+def pyramid2dim_ft(kxx, kyy, width_x, width_y):
+    return (width_x * np.sinc(kxx * width_x) *
+            width_y * np.sinc(kyy * width_y)) ** 2
+
+
+# Crate differential operator matrix
+def diff_operator(ft_gxx, ft_gxy, ft_gyy):
+    gamma_1 = ft_gxx.flatten()
+    gamma_2 = ft_gxy.flatten()
+    gamma_3 = gamma_2
+    gamma_4 = ft_gyy.flatten()
+
+    diagonals = np.array([np.concatenate([gamma_1, gamma_4]).flatten(), gamma_2, gamma_3])
+
+    gamma_glob = sparse.diags(diagonals=diagonals,
+                              offsets=(0, len(gamma_2), -len(gamma_3)),
+                              shape=(2 * len(gamma_1), 2 * len(gamma_1)))
+
+    return gamma_glob
+
+
+# Center 2D array to remove padding
+def center_padding(array2dim, x, y):
+    # Determine the start and end indices to get the central part
+    center_i = (np.shape(array2dim)[0]) // 2
+    center_j = (np.shape(array2dim)[1]) // 2
+
+    result = array2dim[center_i - len(x) // 2: center_i + len(x) // 2,
+             center_j - len(y) // 2: center_j + len(y) // 2]
+    return result
