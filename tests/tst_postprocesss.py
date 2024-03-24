@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from pytraction import TractionForceConfig, Dataset, process_stack
+from pytraction import TractionForceConfig, TractionForceDataset, process_stack
 from pytraction.postprocess import strain_energy
 from pytraction.noise import get_noise
 from tests.prelim_code.tst_utilis import *
@@ -15,7 +15,7 @@ def tst__postprocess():
                              '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.h5')
 
     try:
-        dataset_loaded = Dataset(data_path)
+        dataset_loaded = TractionForceDataset(data_path)
         x, y = dataset_loaded[0]["pos"][0]
         u, v = dataset_loaded[0]["vec"][0]
         f_n_m = dataset_loaded[0]["force_field"][0]

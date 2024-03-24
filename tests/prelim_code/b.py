@@ -1,5 +1,5 @@
 import os
-from pytraction import (TractionForceConfig, process_stack, plot, Dataset)
+from pytraction import (TractionForceConfig, process_stack, plot, TractionForceDataset)
 
 
 def t_fourier_xu():

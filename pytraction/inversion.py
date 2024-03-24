@@ -5,9 +5,12 @@ from pytraction.kernels import *
 from pytraction.utils import *
 
 
-def traction_bem(pos, method, point_dens, s, elastic_modulus):
+def traction_bem(pos, method, s, elastic_modulus):
     xx = pos[:, :, 0]
     yy = pos[:, :, 1]
+
+    i_max = xx.shape[0]
+    j_max = yy.shape[1]
 
     x_val, y_val = xx[0, :], yy[:, 0]
     meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]
@@ -19,9 +22,9 @@ def traction_bem(pos, method, point_dens, s, elastic_modulus):
     gamma_kxx, gamma_kxy, gamma_kyy = (kernel_ft(kxx, kyy, s, elastic_modulus) *
                                        pyramid2dim_ft(kxx, kyy, 2 * meshsize_x, 2 * meshsize_y))
 
-    gamma_glob_xx, gamma_glob_xy, gamma_glob_yy = (np.zeros((point_dens ** 2, point_dens ** 2)),
-                                                   np.zeros((point_dens ** 2, point_dens ** 2)),
-                                                   np.zeros((point_dens ** 2, point_dens ** 2)))
+    gamma_glob_xx, gamma_glob_xy, gamma_glob_yy = (np.zeros((i_max ** 2, j_max ** 2)),
+                                                   np.zeros((i_max ** 2, j_max ** 2)),
+                                                   np.zeros((i_max ** 2, j_max ** 2)))
 
     # Loop over grid in spatial domain and calculate BEM matrix components
     for i, x_k in enumerate(x_val):
@@ -49,14 +52,14 @@ def traction_bem(pos, method, point_dens, s, elastic_modulus):
                 raise ValueError(f"{method} method is not available.")
 
             # Define BEM matrix block sizes
-            block_i = point_dens * i
-            block_j = point_dens * j
+            block_i = i_max * i
+            block_j = j_max * j
 
             # Swapping rows and columns in matrix equals multiplication by permutation matrix (Involutory matrix)
             # This justifies to separate vector components as the matrices inverse is invariant under this operation
-            gamma_glob_xx[block_i:block_i + point_dens:, block_j:block_j + point_dens] = gamma_xx
-            gamma_glob_xy[block_i:block_i + point_dens:, block_j:block_j + point_dens] = gamma_xy
-            gamma_glob_yy[block_i:block_i + point_dens:, block_j:block_j + point_dens] = gamma_yy
+            gamma_glob_xx[block_i:block_i + i_max:, block_j:block_j + j_max] = gamma_xx
+            gamma_glob_xy[block_i:block_i + i_max:, block_j:block_j + j_max] = gamma_xy
+            gamma_glob_yy[block_i:block_i + i_max:, block_j:block_j + j_max] = gamma_yy
             print(f'Index {i, j}')
 
     # Concatenate along the columns (axis=1)
@@ -81,7 +84,8 @@ def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_factor=No
     x_val, y_val = xx[0, :], yy[:, 0]
     meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]
 
-    k_x, k_y = fftfreq(x_val.shape[0], d=meshsize_x), fftfreq(y_val.shape[0], d=meshsize_y)
+    # Return scaled frequency components corresponding to position field
+    k_x, k_y = fftfreq(x_val.shape[0], d=meshsize_x) * 2 * np.pi, fftfreq(y_val.shape[0], d=meshsize_y) * 2 * np.pi
     kxx, kyy = np.meshgrid(k_x, k_y)
 
     ft_ux = fft2(ux)  # FT of displacement fields x component

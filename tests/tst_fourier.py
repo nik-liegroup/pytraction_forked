@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from pytraction import TractionForceConfig, Dataset, process_stack
+from pytraction import TractionForceConfig, TractionForceDataset, process_stack
 from pytraction.process import calculate_traction_map
 from pytraction.noise import get_noise
 from tests.prelim_code.tst_utilis import *
@@ -32,7 +32,7 @@ def tst__fourier_method():
                                           segment=False)
 
     try:
-        dataset_loaded = Dataset(data_path)
+        dataset_loaded = TractionForceDataset(data_path)
         x, y = dataset_loaded[0]["pos"][0]
         u, v = dataset_loaded[0]["vec"][0]
         beta = get_noise(traction_config, x, y, u, v, None, custom_noise=None)

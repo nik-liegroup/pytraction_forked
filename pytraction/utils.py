@@ -7,7 +7,7 @@ from typing import Tuple, Type, Union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.sparse import linalg
 
-from pytraction.dataset import Dataset
+from pytraction.tractionforcedataset import TractionForceDataset
 
 
 def bead_density(img: np.ndarray) -> float:
@@ -82,23 +82,20 @@ def clahe(data: np.ndarray) -> np.ndarray:
 
 
 def plot(
-        log: type(Dataset),
+        log: type(TractionForceDataset),
         frames: Union[list, int] = 0,
         vmax: float = None,
         mask: bool = True,
         figsize: tuple = (16, 16),
-) -> Tuple[mpl.figure.Figure, mpl.axes.Axes]:
+):
     """[summary]
 
     Args:
-        log (Type[Dataset]): [description]
-        frame (int, optional): [description]. Defaults to 0.
+        log (Type[TractionForceDataset]): [description]
+        frames (int, optional): [description]. Defaults to 0.
         vmax (float, optional): [description]. Defaults to None.
         mask (bool, optional): [description]. Defaults to True.
         figsize (tuple, optional): [description]. Defaults to (16,16).
-
-    Returns:
-        Tuple[plt.figure.Figure,plt.axes.Axes]: [description]
     """
 
     if isinstance(frames, int):
@@ -123,18 +120,19 @@ def plot(
             continue
 
         traction_map.append(log_frame["traction_map"][0])
-        cell_roi.append(log_frame["cell_roi"][0])
-        pos.append(log_frame["pos"][0])
-        vec.append(log_frame["vec"][0])
-        L.append(log_frame["L"][0])
+        cell_roi.append(log_frame["cell_image"][0])
+        pos.append(log_frame["position_interpolated"][0])
+        vec.append(log_frame["traction"][0])
+        L.append(log_frame["optimal_lambda"][0])
 
     # Calculate mean fields and values for time-series
 
     traction_map_sum = np.sum(traction_map, axis=0)
 
     cell_roi = cell_roi[0]
-    x, y = pos[0]
-    u_sum, v_sum = np.sum(vec, axis=0)
+    x, y = pos[0][:, :, 0], pos[0][:, :, 1]
+    vec_sum = np.sum(vec, axis=0)
+    u_sum, v_sum = vec_sum[0, :, :], vec_sum[1, :, :]
     L_mean = np.mean(L)
     vmax = np.max(traction_map_sum) if not vmax else vmax
 

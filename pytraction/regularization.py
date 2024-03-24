@@ -152,10 +152,18 @@ def bayesian_regularization_ft(
 
 
 # Tikhonov regularization
-def tikhonov_simple(X, u_glob, lambda_2):
-    aa = X.shape[1]
+def tikhonov_simple(gamma_glob, vec_u, lambd):
+    ux = vec_u[:, :, 0]
+    uy = vec_u[:, :, 1]
+    i_max = ux.shape[0]
+    j_max = uy.shape[1]
+    u = np.array([ux.flatten(), uy.flatten()]).flatten()
+
+    aa = gamma_glob.shape[1]
     c = np.ones(aa)
     C = np.diag(c)
 
-    f_glob = np.linalg.inv(X.T @ X + lambda_2 * C) @ (X.T @ u_glob)
-    return f_glob
+    f = np.linalg.inv(gamma_glob.T @ gamma_glob + lambd * C) @ (gamma_glob.T @ u)
+    fx = f[:i_max*j_max].reshape(i_max, j_max).T
+    fy = f[i_max * j_max:].reshape(i_max, j_max).T
+    return fx, fy

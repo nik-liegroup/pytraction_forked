@@ -5,8 +5,9 @@ from openpiv import widim
 from scipy.interpolate import griddata
 from pytraction.optimal_lambda import optimal_lambda
 from pytraction.utils import remove_boarder_from_aligned
-from pytraction.inversion import traction_fourier
 from pytraction.regularization import *
+from pytraction.inversion import traction_fourier, traction_bem
+from pytraction.fourier import *
 
 
 def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
@@ -110,13 +111,13 @@ def interp_vec2grid(
         pos_flat: np.ndarray,
         vec_flat: np.ndarray,
         meshsize: float,
-        interp_pos=np.array([])
+        pos_interp=np.array([])
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Interpolates vector field onto rectangular grid which will be constructed using the meshsize parameter or can be
     handed manually using the grid_mat variable.
     """
-    if not interp_pos:
+    if not pos_interp:
         # Get boundary dimensions of vector field to calculate grid dimensions
         max_pos = [np.max(pos_flat[0]), np.max(pos_flat[1])]  # Calculate maximum value of position along x- and y-axis
         min_pos = [np.min(pos_flat[0]), np.min(pos_flat[1])]  # Calculate minimum value of position along x- and y-axis
@@ -138,60 +139,67 @@ def interp_vec2grid(
         xx, yy = np.meshgrid(x_grid, y_grid)  # xx and yy are both 2D matrices
 
         # Merges 2D xx and 2D yy array along second axis
-        interp_pos = np.stack([xx, yy], axis=2)
+        pos_interp = np.stack([xx, yy], axis=2)
 
     # Perform interpolation of displacement vectors at pos onto a grid defined by grid_mat
-    interp_vec = griddata(pos_flat.T, vec_flat.T, (interp_pos[:, :, 0], interp_pos[:, :, 1]), method="cubic")
+    vec_interp = griddata(pos_flat.T, vec_flat.T, (pos_interp[:, :, 0], pos_interp[:, :, 1]), method="cubic")
 
     # Remove all NaN values in the displacement field
-    interp_vec = np.nan_to_num(interp_vec)
+    vec_interp = np.nan_to_num(vec_interp)
 
-    return interp_pos, interp_vec
+    return pos_interp, vec_interp
 
 
 def calculate_traction_map(pos: np.array,
-                           vec: np.array,
+                           vec_u: np.array,
                            beta: float,
                            s: float,
                            pix_per_mu: float,
                            E: float,
-                           method: str='FT'):
+                           method: str = 'FT'):
     """
-    Calculates 2D traction map given the displacement vector field and the noise value beta using a FFT or FEM
+    Calculates 2D traction map given the displacement vector field and the noise value beta using an FFT or FEM
     (Boundary element method) approach.
     """
-    if method is 'FT':
-        # Calculate simple inverse solution for regularization parameter estimation
-        _, _, _, _, ft_ux, ft_uy, kxx, kyy, gamma_glob = traction_fourier(pos=pos,
-                                                                          vec=vec,
-                                                                          s=s,
-                                                                          elastic_modulus=E,
-                                                                          lambd=None,
-                                                                          scaling_factor=pix_per_mu,
-                                                                          zdepth=0)
+    # Predict lambda for tikhonov regularization from bayesian model
+    # ToDo: Upgrade to new function in pytraction.regularization
+    xx = pos[:, :, 0]
+    x_val = xx[0, :]
+    meshsize = x_val[1] - x_val[0]
+    ft_ux_old, ft_uy_old, kxx_old, kyy_old, gamma_glob_old = fourier_xu(vec_u, E, s, meshsize)
+    lamd, evidence, evidence_one = optimal_lambda(
+        beta, ft_ux_old, ft_uy_old, kxx_old, kyy_old, E, s, meshsize, gamma_glob_old
+    )
+    # ToDo: END
 
-        # Predict lambda for tikhonov regularization from bayesian model
-        # ToDo: Upgrade to new function in pytraction.regularization
-        L, evidence, evidence_one = optimal_lambda(
-            beta, ft_ux, ft_uy, kxx, kyy, E, s, 8, gamma_glob
-        )
+    if method == 'FT':
+        # Calculate simple inverse solution for regularization parameter estimation
+        _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
+                                                              vec=vec_u,
+                                                              s=s,
+                                                              elastic_modulus=E,
+                                                              lambd=None,
+                                                              scaling_factor=pix_per_mu,
+                                                              zdepth=0)
 
         # Calculate traction field in fourier space and transform back to spatial domain
-        fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, gamma_glob = traction_fourier(pos=pos,
-                                                                           vec=vec,
-                                                                           s=s,
-                                                                           elastic_modulus=E,
-                                                                           lambd=L,
-                                                                           scaling_factor=pix_per_mu,
-                                                                           zdepth=0)
+        fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
+                                                       vec=vec_u,
+                                                       s=s,
+                                                       elastic_modulus=E,
+                                                       lambd=lamd,
+                                                       scaling_factor=pix_per_mu,
+                                                       zdepth=0)
+
+    elif method == 'BEM':
+        gamma_glob = traction_bem(pos=pos, method='conv', s=s, elastic_modulus=E)
+        fx, fy = tikhonov_simple(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
 
     else:
         msg = ('Only fourier transform (FT) and boundary element method (BEM) are currently implemented to solve \
          inverse problem.')
         raise RuntimeError(msg)
 
-    traction_magnitude = np.sqrt(fx ** 2 + fy ** 2)
-    traction_magnitude = np.flip(traction_magnitude, axis=0)
-    f_n_m = np.array([fx, fy])
+    vec_f = np.array([fx, fy])
 
-    return traction_magnitude, f_n_m, L, evidence_one
+    return vec_f, lamd, evidence_one

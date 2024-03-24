@@ -2,14 +2,14 @@ import os
 
 import pandas as pd
 
-from pytraction.dataset import Dataset
+from pytraction.tractionforcedataset import TractionForceDataset
 
 
 def test_Dataset_load():
 
     dataset_path = os.path.join("tests", "data", "example_dataset.h5")
 
-    dataset = Dataset(dataset_path)
+    dataset = TractionForceDataset(dataset_path)
 
     assert len(dataset) == 1
     assert list(dataset.columns) == [
@@ -35,7 +35,7 @@ def test_Dataset_metadata():
 
     dataset_path = os.path.join("tests", "data", "example_dataset.h5")
 
-    dataset = Dataset(dataset_path)
+    dataset = TractionForceDataset(dataset_path)
 
     assert hasattr(dataset, "metadata")
 
@@ -70,7 +70,7 @@ def test_Dataset_save():
 
     dataset_path = os.path.join("tests", "data", "example_dataset.h5")
 
-    dataset = Dataset(dataset_path)
+    dataset = TractionForceDataset(dataset_path)
 
     assert dataset.save("test.h5") == True
 
@@ -79,7 +79,7 @@ def test_Dataset_str():
 
     dataset_path = os.path.join("tests", "data", "example_dataset.h5")
 
-    dataset = Dataset(dataset_path)
+    dataset = TractionForceDataset(dataset_path)
 
     assert isinstance(dataset.__str__(), str)
     assert isinstance(dataset.__repr__(), str)

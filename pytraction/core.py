@@ -10,15 +10,13 @@ import yaml
 
 from typing import Tuple, Type, Union, Any
 from shapely import geometry
-from pytraction.dataset import Dataset
+from pytraction.tractionforcedataset import TractionForceDataset
 from pytraction.net.dataloader import get_preprocessing
-from pytraction.preprocess import (get_min_window_size,
-                                   _get_raw_frames,
-                                   write_frame_results,
-                                   write_metadata_results)
+from pytraction.preprocess import get_min_window_size, _get_raw_frames
 from pytraction.process import calculate_traction_map, iterative_piv, interp_vec2grid
 from pytraction.roi import roi_loaders, load_frame_roi, create_crop_mask_targets, get_polygon_and_roi
 from pytraction.noise import get_noise
+from pytraction.tractionforcedataset import write_tfm_results, write_tfm_metadata
 
 
 class TractionForceConfig(object):
@@ -241,7 +239,7 @@ def process_stack(
         cell_channel: int = 0,
         crop: bool = False,
         noise: Union[np.ndarray, Type[geometry.Polygon], int] = 10
-) -> type(Dataset):
+) -> type(TractionForceDataset):
     """
     Central function to calculate PIV, traction map & save results to HDF5 file.
 
@@ -272,7 +270,7 @@ def process_stack(
     bytes_hdf5 = io.BytesIO()
 
     # Open an HDF5 file for storing large and complex data structures
-    with h5py.File(bytes_hdf5, "w") as results:
+    with h5py.File(bytes_hdf5, "w") as h5py_file:
         # Loop through each time-frame
         for frame in list(range(n_frames)):
             # Load image, reference, and cell image in 8bit format for the current frame
@@ -301,35 +299,47 @@ def process_stack(
             beta = get_noise(x=x, y=y, u=u, v=v, polygon=polygon, noise=noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
+            pos = np.array([x, y])
             pos_flat = np.array([x.flatten(), y.flatten()])
+
+            vec = np.array([u, v])
             vec_flat = np.array([u.flatten(), v.flatten()])
 
             # ToDO: Check if reference frame update pos = vec + pos is necessary
-            # pos = pos + vec
+            # pos_flat = pos_flat + vec_flat
 
             # Interpolate displacement field onto rectangular grid using meshsize
-            interp_pos, interp_vec = interp_vec2grid(pos_flat=pos_flat, vec_flat=vec_flat,
+            pos_interp, vec_interp = interp_vec2grid(pos_flat=pos_flat,
+                                                     vec_flat=vec_flat,
                                                      meshsize=config.config["tfm"]["meshsize"])
 
             # Compute traction field from displacement field using Boussinesq equation and tikhonov regularization
-            traction_map, f_n_m, l_optimal, evidence_one = calculate_traction_map(
-                pos=interp_pos,
-                vec=interp_vec,
+            vec_f, lambd, evidence_one = calculate_traction_map(
+                pos=pos_interp,
+                vec_u=vec_interp,
                 beta=beta,
                 s=config.config["tfm"]["s"],
                 pix_per_mu=config.config["tfm"]["pix_per_mu"],
-                E=config.config["tfm"]["E"]
+                E=config.config["tfm"]["E"],
+                method='FT'
             )
 
-            # Write results for the current frame to the HDF5 file
-            results = write_frame_results(results, frame, traction_map, f_n_m, drift_corrected_stack, cell_img, mask,
-                                          beta, l_optimal, pos_flat, vec_flat)
-
-        # Write metadata to the results file
-        write_metadata_results(results, config.config)
-
-        # To recover information in the future, use the following syntax:
-        # h5py.File(results)['metadata'].attrs['img_path'].tobytes()
+            # Write results for the current frame to the open h5py file
+            h5py_file = write_tfm_results(
+                h5py_file=h5py_file,
+                frame=frame,
+                pos=pos,
+                pos_interp=pos_interp,
+                vec_u=vec,
+                vec_u_interp=vec_interp,
+                vec_f=vec_f,
+                beta=beta,
+                lamd_opt=lambd,
+                drift_corr_stack=drift_corrected_stack,
+                cell_img=cell_img,
+                mask=mask,
+                config=config.config,
+            )
 
     # Return the results as a Dataset
-    return Dataset(bytes_hdf5)
+    return TractionForceDataset(bytes_hdf5)
