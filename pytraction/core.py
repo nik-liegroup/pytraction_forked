@@ -299,10 +299,10 @@ def process_stack(
             beta = get_noise(x=x, y=y, u=u, v=v, polygon=polygon, noise=noise)
 
             # Create arrays for position (pos) and displacement vectors (vec)
-            pos = np.array([x, y])
+            pos = np.stack((x, y), axis=2)
             pos_flat = np.array([x.flatten(), y.flatten()])
 
-            vec = np.array([u, v])
+            vec = np.stack((u, v), axis=2)
             vec_flat = np.array([u.flatten(), v.flatten()])
 
             # ToDO: Check if reference frame update pos = vec + pos is necessary
@@ -341,5 +341,7 @@ def process_stack(
                 config=config.config,
             )
 
-    # Return the results as a Dataset
-    return TractionForceDataset(bytes_hdf5)
+    # Convert to TFM dataset
+    tfm_dataset = TractionForceDataset(bytes_hdf5)
+
+    return tfm_dataset

@@ -200,6 +200,6 @@ def calculate_traction_map(pos: np.array,
          inverse problem.')
         raise RuntimeError(msg)
 
-    vec_f = np.array([fx, fy])
+    vec_f = np.stack((fx, fy), axis=2)
 
     return vec_f, lamd, evidence_one
