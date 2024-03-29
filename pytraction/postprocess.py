@@ -116,6 +116,7 @@ def tfm_plot(
         ax[0].imshow(
             cell_img[0],
             cmap="gray",
+            alpha=0.6,
             extent=[pos_x.min(), pos_x.max(), pos_y.min(), pos_y.max()],
         )
         ax[0].set_axis_off()
@@ -134,16 +135,41 @@ def tfm_plot(
     return fig, ax
 
 
-def tfm_gif(figs: list, sys_path: str, fps: int = 5):
+def tfm_gif(figs: list, sys_path: str, fps: float = 5):
     """
     Creates .gif movie from matplotlib figures with provided frames per second.
-   """
+    """
+    # Set colorbar maximum of all figures equally to the largest
+    figs, vmax = set_cbar_max(figs)
+
     images = []
     for fig in figs:
-        fig.canvas.draw()
-        width, height = fig.canvas.get_width_height()
-        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8').reshape((height, width, 3))
+        # Save images to buffer as .png
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format='png', dpi=fig.dpi, bbox_inches="tight")
+
+        # Rewind the pointer to beginning of file and read
+        buffer.seek(0)
+        image = imageio.imread(buffer)
         images.append(image)
 
-        # Save the images to a GIF file
-        imageio.mimsave(sys_path, images, duration=fps)
+    # Save the images to a GIF file
+    imageio.mimsave(sys_path, images, duration=1/fps)
+
+
+
+def set_cbar_max(figs: list):
+    """
+    Get maximum colorbar value of figures in list and applies it to all.
+    """
+    max_vmax = 0
+    for fig in figs:
+        cbar = fig.axes[0].collections[0].colorbar
+        vmax = cbar.vmax
+        max_vmax = max(max_vmax, vmax)
+
+    for fig in figs:
+        cbar = fig.axes[0].collections[0].colorbar
+        cbar.mappable.set_clim(vmin=cbar.vmin, vmax=vmax)
+
+    return figs, vmax
