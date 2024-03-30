@@ -31,7 +31,7 @@ def minus_logevidence(
     aa = X.shape
     LL = alpha / beta
     _, _, _, _, Ftfx, Ftfy = reg_fourier_tfm(
-        Ftux, Ftuy, kx, ky, LL, E, s, cluster_size, i_max, j_max, slim=True
+        Ftux.T, Ftuy.T, kx, ky, LL, E, s, cluster_size, i_max, j_max, slim=True
     )
     fxx = Ftfx.reshape(i_max * j_max, 1)
     fyy = Ftfy.reshape(i_max * j_max, 1)

@@ -6,6 +6,7 @@ import scipy.sparse as sparse
 from typing import Tuple, Type, Union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.sparse import linalg
+from scipy.interpolate import interp2d
 
 from pytraction.tractionforcedataset import TractionForceDataset
 
@@ -117,3 +118,39 @@ def center_padding(array2dim, x, y):
     result = array2dim[center_i - len(x) // 2: center_i + len(x) // 2,
              center_j - len(y) // 2: center_j + len(y) // 2]
     return result
+
+
+def set_cbar_max(figs: list):
+    """
+    Get maximum color-bar value of figures in list and applies it to all.
+    """
+    max_vmax = 0
+    for fig in figs:
+        cbar = fig.axes[0].collections[0].colorbar
+        vmax = cbar.vmax
+        max_vmax = max(max_vmax, vmax)
+
+    for fig in figs:
+        cbar = fig.axes[0].collections[0].colorbar
+        cbar.mappable.set_clim(vmin=cbar.vmin, vmax=vmax)
+
+    return figs, vmax
+
+def interp_mask2grid(mask: np.ndarray, pos: np.ndarray):
+    # Create grid coordinates for original mask array
+    x_orig = np.linspace(0, 1, mask.shape[0])
+    y_orig = np.linspace(0, 1, mask.shape[1])
+
+    # Create grid coordinates for target image array
+    x_target = np.linspace(0, 1, pos.shape[0])
+    y_target = np.linspace(0, 1, pos.shape[1])
+
+    # Create interpolation function
+    interpolator = interp2d(x_orig, y_orig, mask, kind='linear')
+
+    # Interpolate mask to fit the vector field size
+    interp_mask = interpolator(x_target, y_target)
+
+    interp_mask = np.where(interp_mask > 150, True, False)
+
+    return interp_mask

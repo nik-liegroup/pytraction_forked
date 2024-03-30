@@ -203,12 +203,13 @@ def create_crop_mask_targets(img: np.ndarray,
         return img, ref, cell_img, mask
 
     if not crop and isinstance(pts, np.ndarray):
-        # Create mask to select whole image
+        # Create mask from points with the same size as original image
         mask = _create_mask(cell_img, pts)
         return img, ref, cell_img, mask
 
     else:
-        return img, ref, cell_img, None
+        mask = np.full((cell_img).shape, 255)
+        return img, ref, cell_img, mask
 
 
 def _crop_roi(img: np.ndarray,
