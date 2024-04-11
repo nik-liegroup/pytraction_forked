@@ -164,7 +164,6 @@ def tfm_savegif(figs: list, sys_path: str, fps: float = 5):
     for fig in figs:
         # Save images to buffer as .png
         buffer = io.BytesIO()
-        tst = fig.dpi
         fig.savefig(buffer, format='png', dpi=fig.dpi, bbox_inches="tight")
 
         # Rewind the pointer to beginning of file and read

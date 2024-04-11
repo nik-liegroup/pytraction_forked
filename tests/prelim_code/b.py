@@ -22,7 +22,7 @@ def t_fourier_xu():
 
     traction_config = TractionForceConfig(E=E,
                                           scaling_factor=pix_per_mu,
-                                          min_window_size=64,
+                                          window_size=64,
                                           config_path=config_path,
                                           segment=False)
 

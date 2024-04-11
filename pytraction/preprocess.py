@@ -30,21 +30,21 @@ def normalize(x: np.ndarray) -> np.ndarray:
 
 def get_min_window_size(img: np.ndarray, config) -> int:
     """
-    Calculate window size from bead density if min_window_size is not set in pyforce config file.
+    Calculate window size from bead density if window_size is not set in pyforce config file.
     """
-    if not config.config["piv"]["min_window_size"]:
+    if not config.config["piv"]["window_size"]:
         density = bead_density(img)
 
         if config.knn is None:
-            wnd_sz = config.config["piv"]["min_window_size"]
+            wnd_sz = config.config["piv"]["window_size"]
             msg = f"Window size set to {wnd_sz}, but KNN model was not loaded."
             raise RuntimeWarning(msg)
 
         # Use K-nearest neighbors (KNN) classifier to predict minimum window size based on bead density
         knn = config.knn
-        min_window_size = knn.predict([[density]])
-        print(f"Automatically selected window size of {min_window_size}")
-        return int(min_window_size)
+        window_size = knn.predict([[density]])
+        print(f"Automatically selected window size of {window_size}")
+        return int(window_size)
 
     else:
-        return config.config["piv"]["min_window_size"]
+        return config.config["piv"]["window_size"]

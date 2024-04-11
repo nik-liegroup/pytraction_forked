@@ -27,7 +27,7 @@ def tst__fourier_method():
                             '2DTFM_10kPa_hPAAGel_2_3T3Fibroblasts_2023_12_14_TimePos_Series_Position 7.png')
 
     traction_config = TractionForceConfig(E=E, scaling_factor=pix_per_mu,
-                                          min_window_size=64,
+                                          window_size=64,
                                           config_path=config_path,
                                           segment=False)
 

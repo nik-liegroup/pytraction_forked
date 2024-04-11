@@ -3,6 +3,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
+from scipy.fft import fftfreq, ifft2, fft2
 from typing import Tuple, Type, Union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.sparse import linalg
@@ -47,6 +48,28 @@ def remove_boarder_from_aligned(aligned_img: np.ndarray, aligned_ref: np.ndarray
     borderless_ref = aligned_ref[non_zero_rows[0]:non_zero_rows[-1] + 1, non_zero_cols[0]:non_zero_cols[-1] + 1]
 
     return borderless_img, borderless_ref
+
+
+def ft_2Dvector_field(pos, vec):
+    # Extract components from displacement vector field
+    xx = pos[:, :, 0]
+    yy = pos[:, :, 1]
+
+    uu = vec[:, :, 0]
+    vv = vec[:, :, 1]
+
+    # Calculate meshsize
+    x_val, y_val = xx[0, :], yy[:, 0]
+    meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]
+
+    # Return scaled frequency components corresponding to position field
+    k_x, k_y = fftfreq(x_val.shape[0], d=meshsize_x) * 2 * np.pi, fftfreq(y_val.shape[0], d=meshsize_y) * 2 * np.pi
+    kxx, kyy = np.meshgrid(k_x, k_y)
+
+    ft_uu = fft2(uu)  # FT of displacement fields x component
+    ft_vv = fft2(vv)  # FT of displacement fields y component
+
+    return kxx, kyy, ft_uu, ft_vv, meshsize_x, meshsize_y
 
 
 def sparse_cholesky(A):
@@ -100,7 +123,10 @@ def diff_operator(ft_gxx, ft_gxy, ft_gyy):
     gamma_3 = gamma_2
     gamma_4 = ft_gyy.flatten()
 
-    diagonals = np.array([np.concatenate([gamma_1, gamma_4]).flatten(), gamma_2, gamma_3])
+    zero_padding = np.zeros(gamma_1.shape)
+    diagonals = np.array([np.concatenate([gamma_1, gamma_4]).flatten(),
+                          np.concatenate([gamma_2, zero_padding]).flatten(),
+                          np.concatenate([gamma_3, zero_padding]).flatten()])
 
     gamma_glob = sparse.diags(diagonals=diagonals,
                               offsets=(0, len(gamma_2), -len(gamma_3)),
@@ -135,6 +161,7 @@ def set_cbar_max(figs: list):
         cbar.mappable.set_clim(vmin=cbar.vmin, vmax=vmax)
 
     return figs, vmax
+
 
 def interp_mask2grid(mask: np.ndarray, pos: np.ndarray):
     # Create grid coordinates for original mask array

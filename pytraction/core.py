@@ -30,7 +30,7 @@ class TractionForceConfig(object):
             E: float,  # ToDo: Rename to improve understandability
             scaling_factor: float,
             config_path: str,
-            min_window_size: Union[int, None] = None,
+            window_size: Union[int, None] = None,
             meshsize: float = 8,
             s: float = 0.5,  # ToDo: Rename to improve understandability
             **kwargs,
@@ -39,7 +39,7 @@ class TractionForceConfig(object):
         @param  E: Young's modulus of culture substrate in Pa.
         @param  scaling_factor: Pixels per micrometer.
         @param  config_path: System path to config.yaml file.
-        @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Determines the size of the subregions
+        @param  window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Determines the size of the subregions
         used for tracking particle motion which should be adjusted to bead density of the input images. If set to 0,
         value will be predicted from bead density using KNN class.
         @param  meshsize: Specifies number of grid intervals to interpolate displacement field on. To keep PIV
@@ -48,10 +48,10 @@ class TractionForceConfig(object):
         @param **kwargs
         """
         # Load and configure parameters from the YAML config file
-        self.config = self._config_yaml(config_path=config_path, E=E, min_window_size=min_window_size, s=s,
+        self.config = self._config_yaml(config_path=config_path, E=E, window_size=window_size, s=s,
                                         meshsize=meshsize, scaling_factor=scaling_factor)
 
-        if type(self.config["piv"]["min_window_size"]) is not int or self.config["piv"]["min_window_size"] == 0:
+        if type(self.config["piv"]["window_size"]) is not int or self.config["piv"]["window_size"] == 0:
             # Load K-nearest neighbors model (KNN) to predict minimum window size based on bead density
             self.knn = self._get_knn_model()
         else:
@@ -78,7 +78,7 @@ class TractionForceConfig(object):
             E: float,
             scaling_factor: float,
             config_path: str,
-            min_window_size: Union[int, None],
+            window_size: Union[int, None],
             meshsize: float,
             s: float
     ) -> dict:
@@ -88,7 +88,7 @@ class TractionForceConfig(object):
         @param  E: Young's modulus of culture substrate in Pa.
         @param  scaling_factor: Pixels per micrometer.
         @param  config_path: System path to config.yaml file.
-        @param  min_window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Initial data suggest a parameter between
+        @param  window_size: Must be multiple of base 2 i.e. 8, 16, 32, 64. Initial data suggest a parameter between
         8 and 64 will be suitable for most applications but depends on the bead density of the input images.
         @param  meshsize: Specifies number of grid intervals to interpolate displacement field on. To keep PIV
         resolution, set to overlap_ratio * window_size.
@@ -99,11 +99,11 @@ class TractionForceConfig(object):
 
         # Overwrite parts of imported config dictionary with user input data
         config["tfm"]["E"] = E
-        config["tfm"]["pix_per_mu"] = scaling_factor
-        config["piv"]["min_window_size"] = (
-            min_window_size
-            if min_window_size is not None
-            else config["piv"]["min_window_size"]
+        config["tfm"]["scaling_factor"] = scaling_factor
+        config["piv"]["window_size"] = (
+            window_size
+            if window_size is not None
+            else config["piv"]["window_size"]
         )
         config["tfm"]["s"] = (
             s if s is not None else config["tfm"]["s"]
@@ -280,8 +280,8 @@ def process_stack(
             )
 
             # Get the minimum window size for PIV
-            min_window_size = get_min_window_size(img=img, config=config)
-            config.config["piv"]["min_window_size"] = min_window_size
+            window_size = get_min_window_size(img=img, config=config)
+            config.config["piv"]["window_size"] = window_size
 
             # Load ROI for the current frame
             roi_i = load_frame_roi(roi=roi, frame=frame, nframes=n_frames)
@@ -305,13 +305,11 @@ def process_stack(
             vec = np.stack((u, v), axis=2)
             vec_flat = np.array([u.flatten(), v.flatten()])
 
-            # ToDO: Check if reference frame update pos = vec + pos is necessary
-            # pos_flat = pos_flat + vec_flat
-
             # Interpolate displacement field onto rectangular grid using meshsize
+            scaled_meshsize = config.config["tfm"]["meshsize"]/config.config["tfm"]["scaling_factor"]
             pos_interp, vec_interp = interp_vec2grid(pos_flat=pos_flat,
                                                      vec_flat=vec_flat,
-                                                     meshsize=config.config["tfm"]["meshsize"])
+                                                     meshsize=scaled_meshsize)
 
             # Compute traction field from displacement field using Boussinesq equation and tikhonov regularization
             vec_f, lambd, evidence_one = calculate_traction_map(
@@ -319,7 +317,7 @@ def process_stack(
                 vec_u=vec_interp,
                 beta=beta,
                 s=config.config["tfm"]["s"],
-                pix_per_mu=config.config["tfm"]["pix_per_mu"],
+                scaling_z=config.config["tfm"]["scaling_z"],
                 E=config.config["tfm"]["E"],
                 method='FT'
             )

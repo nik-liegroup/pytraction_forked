@@ -1,13 +1,12 @@
 import numpy as np
 import cv2
 from typing import Tuple
-from openpiv import widim
+from openpiv import pyprocess, validation, filters, scaling, tools
 from scipy.interpolate import griddata
-from pytraction.optimal_lambda import optimal_lambda
+from pytraction.regularization import optimal_lambda
 from pytraction.utils import remove_boarder_from_aligned
 from pytraction.regularization import *
 from pytraction.inversion import traction_fourier, traction_bem
-from pytraction.fourier import *
 
 
 def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
@@ -27,7 +26,7 @@ def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
         img, ref = remove_boarder_from_aligned(img, ref)
 
     # Calculate displacement field
-    x, y, u, v, mask = compute_piv(img, ref, config)
+    x, y, u, v = compute_piv(img, ref, config)
 
     # Create drift corrected stack
     drift_corrected_stack = np.stack([img, ref])
@@ -77,30 +76,55 @@ def align_slice(img: np.ndarray, ref: np.ndarray) -> Tuple[int, int, np.ndarray]
 
 def compute_piv(img: np.ndarray,
                 ref: np.ndarray,
-                config) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                config) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute deformation field using particle image velocimetry (PIV) with an implementation of window size coarsening.
     """
-    # Select whole image for PIV
-    mask = np.ones_like(ref).astype(np.int32)
+    config = config.config
+    overlap = int(config["piv"]["overlap_ratio"] * config["piv"]["window_size"])
     try:
-        # Compute PIV using a window displacement iterative method
-        x, y, u, v, mask = widim.WiDIM(  # Returns displacement vectors (u,v) for positions (x,y)
+        # Compute displacement field using a standard PIV cross-correlation algorithm
+        u0, v0, sig2noise = pyprocess.extended_search_area_piv(
             ref.astype(np.int32),
             img.astype(np.int32),
-            mask,
-            **config.config["piv"],  # Unpack and pass the contents of a dictionary as keyword arguments
+            window_size=config["piv"]["window_size"],
+            overlap=overlap,
+            dt=config["piv"]["dt"],
+            search_area_size=config["piv"]["window_size"],
+            correlation_method=config["piv"]["correlation_method"],
+            subpixel_method=config["piv"]["subpixel_method"],
+            sig2noise_method=config["piv"]["sig2noise_method"],
+            width=config["piv"]["width"],
+            normalized_correlation=config["piv"]["normalized_correlation"],
+            use_vectorized=config["piv"]["use_vectorized"]
         )
-        return x, y, u, v, mask
+
+        # Return coordinates for PIV vector field
+        x0, y0 = pyprocess.get_coordinates(image_size=ref.shape,
+                                           search_area_size=config["piv"]["window_size"],
+                                           overlap=overlap)
+
+        # Remove vectors in field which have a signal to noise ratio larger than the threshold
+        flags = validation.sig2noise_val(sig2noise, threshold=1.05)
+        u_f, v_f = filters.replace_outliers(u0, v0, flags, method='localmean', max_iter=5, kernel_size=2)
+
+        # Scale field form pixels to microns
+        x, y, u, v = scaling.uniform(x0, y0, u_f, v_f, scaling_factor=config["tfm"]["scaling_factor"])
+
+        # Transform from image to physical coordinates
+        x, y, u, v = tools.transform_coordinates(x, y, u, v)
+
+        return x, y, u, v
+
     except Exception as e:
         if isinstance(e, ZeroDivisionError):
             # Reduce window size and call compute_piv again
             config_tmp = config.copy()
-            config_tmp.config["piv"]["min_window_size"] = (
-                    config.config["piv"]["min_window_size"] // 2
+            config_tmp.config["piv"]["window_size"] = (
+                    config.config["piv"]["window_size"] // 2
             )
             print(
-                f"Reduced min window size to {config_tmp.config['piv']['min_window_size'] // 2} in recursive call"
+                f"Reduced min window size to {config_tmp.config['piv']['window_size'] // 2} in recursive call"
             )
             return compute_piv(img, ref, config)
         else:
@@ -154,41 +178,34 @@ def calculate_traction_map(pos: np.array,
                            vec_u: np.array,
                            beta: float,
                            s: float,
-                           pix_per_mu: float,
+                           scaling_z: float,
                            E: float,
                            method: str = 'FT'):
     """
     Calculates 2D traction map given the displacement vector field and the noise value beta using an FFT or FEM
     (Boundary element method) approach.
     """
+    # Get differential operator matrix for lambda estimation
+    _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
+                                                          vec=vec_u,
+                                                          s=s,
+                                                          elastic_modulus=E,
+                                                          lambd=None,
+                                                          scaling_z=scaling_z,
+                                                          zdepth=0)
     # Predict lambda for tikhonov regularization from bayesian model
-    # ToDo: Upgrade to new function in pytraction.regularization
-    xx = pos[:, :, 0]
-    x_val = xx[0, :]
-    meshsize = x_val[1] - x_val[0]
-    ft_ux_old, ft_uy_old, kxx_old, kyy_old, gamma_glob_old = fourier_xu(vec_u, E, s, meshsize)
-    lamd, evidence, evidence_one = optimal_lambda(
-        beta, ft_ux_old, ft_uy_old, kxx_old, kyy_old, E, s, meshsize, gamma_glob_old
+    lamd, evidence_one = optimal_lambda(
+        pos=pos, vec_u=vec_u, beta=beta, E=E, s=s, scaling_z=scaling_z, gamma_glob=gamma_glob
     )
-    # ToDo: END
 
     if method == 'FT':
-        # Calculate simple inverse solution for regularization parameter estimation
-        _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
-                                                              vec=vec_u,
-                                                              s=s,
-                                                              elastic_modulus=E,
-                                                              lambd=None,
-                                                              scaling_factor=pix_per_mu,
-                                                              zdepth=0)
-
         # Calculate traction field in fourier space and transform back to spatial domain
         fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
                                                        vec=vec_u,
                                                        s=s,
                                                        elastic_modulus=E,
                                                        lambd=lamd,
-                                                       scaling_factor=pix_per_mu,
+                                                       scaling_z=scaling_z,
                                                        zdepth=0)
 
     elif method == 'BEM':

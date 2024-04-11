@@ -72,24 +72,8 @@ def traction_bem(pos, method, s, elastic_modulus):
     return gamma_glob
 
 
-def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_factor=None, zdepth=0, slim=False):
-    # Extract components from displacement vector field
-    xx = pos[:, :, 0]
-    yy = pos[:, :, 1]
-
-    ux = vec[:, :, 0]
-    uy = vec[:, :, 1]
-
-    # Calculate meshsize
-    x_val, y_val = xx[0, :], yy[:, 0]
-    meshsize_x, meshsize_y = x_val[1] - x_val[0], y_val[1] - y_val[0]
-
-    # Return scaled frequency components corresponding to position field
-    k_x, k_y = fftfreq(x_val.shape[0], d=meshsize_x) * 2 * np.pi, fftfreq(y_val.shape[0], d=meshsize_y) * 2 * np.pi
-    kxx, kyy = np.meshgrid(k_x, k_y)
-
-    ft_ux = fft2(ux)  # FT of displacement fields x component
-    ft_uy = fft2(uy)  # FT of displacement fields y component
+def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_z=None, zdepth=0, slim=False):
+    kxx, kyy, ft_ux, ft_uy, meshsize_x, meshsize_y= ft_2Dvector_field(pos=pos, vec=vec)
 
     if lambd is None:
         ft_gxx, ft_gxy, ft_gyy = kernel_ft(kxx, kyy, s, elastic_modulus)
@@ -101,10 +85,9 @@ def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_factor=No
         else:
             # ToDo: Assumes same scaling factor for z as for x,y?
             # Get number of pixels in z-direction
-            z = zdepth / scaling_factor
+            z = zdepth / scaling_z
 
-            ft_gxx, ft_gxy, ft_gyy = kernel_ft_reg(kxx, kyy, lambd, s, elastic_modulus, z, meshsize_x,
-                                                   meshsize_y)
+            ft_gxx, ft_gxy, ft_gyy = kernel_ft_reg(kxx, kyy, lambd, s, elastic_modulus, z, meshsize_x, meshsize_y)
 
     # Calculate convolution of displacement field and Green's function in Fourier space
     ft_fx = ft_gxx * ft_ux + ft_gxy * ft_uy
