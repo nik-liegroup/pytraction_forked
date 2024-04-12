@@ -12,7 +12,7 @@ CLASSIFIERS = [
 ]
 
 REQUIREMENTS = [
-    "albumentations<=1.4.3",
+    "albumentations==0.5.2",
     "attrs==23.2.0",
     "certifi==2024.2.2",
     "cycler==0.12.1",
@@ -43,10 +43,10 @@ REQUIREMENTS = [
     "PyYAML==6.0.1",
     "read-roi==1.6.0",
     "requests==2.31.0",
-    "scikit-image<=0.21.0",
+    "scikit-image>=0.18.1",
     "scikit-learn==0.24.1",
     "scipy==1.10.1",
-    "segmentation_models_pytorch==0.3.3",
+    "segmentation_models_pytorch==0.2.0",
     "shapely==2.0.3",
     "smmap==5.0.1",
     "tifffile==2023.7.10",

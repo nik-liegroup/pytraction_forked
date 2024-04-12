@@ -125,7 +125,7 @@ def write_tfm_results(
     h5py_file[f"mask_roi/{frame}"] = 0 if mask is None else mask
 
     # Write metadata from the config file to the h5py file
-    #h5py_file = write_tfm_metadata(h5py_file, config)
+    h5py_file = write_tfm_metadata(h5py_file, config)
 
     return h5py_file
 
@@ -138,8 +138,8 @@ def write_tfm_metadata(h5py_file: type(h5py.File), config: dict) -> type(h5py.Fi
         @param  h5py_file: Writeable h5py file.
         @param  config: Config file for TFM analysis.
     """
-    # Create metadata group with a placeholder dataset
-    h5py_file["metadata"] = 0
+    if "metadata" not in h5py_file:
+        h5py_file["metadata"] = 0
 
     # Iterate through the PIV and TFM configuration parameters and store them in the h5py file
     for k, v in config["piv"].items():

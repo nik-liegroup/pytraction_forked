@@ -1,17 +1,10 @@
 # Additional
 building/*
 tests/prelim_code
-data/*
-.vscode/*
-data2/*
-examples/Analysis/*
-examples/pytraction/*
-*.h5
-!tests/data/*
 .bash_history/
 .ssh/*
 .vscode-server/*
-
+.vscode/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -51,6 +51,10 @@ class TractionForceConfig(object):
         self.config = self._config_yaml(config_path=config_path, E=E, window_size=window_size, s=s,
                                         meshsize=meshsize, scaling_factor=scaling_factor)
 
+        # Set additional parameters by iterating over key: value pairs
+        for k, v in kwargs.items():
+            self.config["settings"][k] = v
+
         if type(self.config["piv"]["window_size"]) is not int or self.config["piv"]["window_size"] == 0:
             # Load K-nearest neighbors model (KNN) to predict minimum window size based on bead density
             self.knn = self._get_knn_model()
@@ -62,10 +66,6 @@ class TractionForceConfig(object):
             self.cnn, self.pre_fn = self._get_cnn_model(device=self.config["settings"]["device"])
         else:
             self.cnn, self.pre_fn = (None, None)
-
-        # Set additional parameters by iterating over key: value pairs
-        for k, v in kwargs.items():
-            self.config[k] = v
 
     def __repr__(self):
         """
@@ -133,7 +133,7 @@ class TractionForceConfig(object):
         cnn_model = torch.load(f=model_path, map_location="cpu")
 
         if device == "cuda" and torch.cuda.is_available():
-            best_model = cnn_model.to("cuda")
+            cnn_model = cnn_model.to("cuda")
 
         # Retrieves a preprocessing function for images from the segmentation_models_pytorch library
         preproc_fn = smp.encoders.get_preprocessing_fn("efficientnet-b1", "imagenet")

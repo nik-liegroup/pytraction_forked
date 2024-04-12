@@ -1,0 +1,26 @@
+# pytraction example config file
+
+piv:
+  window_size: 0
+  overlap_ratio: 0.5
+  dt: 1
+  correlation_method: circular
+  subpixel_method: gaussian
+  sig2noise_method: peak2peak
+  width: 2
+  normalized_correlation: False
+  use_vectorized: False
+
+tfm:
+  E: 1000
+  s: null
+  meshsize: null
+  scaling_factor: 9.64
+  scaling_z: 2
+
+settings:
+  cell_channel: 0
+  bead_channel: 1
+  segment: False
+  device: cpu
+  crop_aligned_slice: True

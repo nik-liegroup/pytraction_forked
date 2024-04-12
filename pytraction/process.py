@@ -141,7 +141,7 @@ def interp_vec2grid(
     Interpolates vector field onto rectangular grid which will be constructed using the meshsize parameter or can be
     handed manually using the grid_mat variable.
     """
-    if not pos_interp:
+    if len(pos_interp) == 0:
         # Get boundary dimensions of vector field to calculate grid dimensions
         max_pos = [np.max(pos_flat[0]), np.max(pos_flat[1])]  # Calculate maximum value of position along x- and y-axis
         min_pos = [np.min(pos_flat[0]), np.min(pos_flat[1])]  # Calculate minimum value of position along x- and y-axis
