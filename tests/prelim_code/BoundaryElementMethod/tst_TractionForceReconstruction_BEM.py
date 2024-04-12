@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from tests.prelim_code.prelim_inversion import *
 from tests.prelim_code.prelim_regularization import *
 from tests.prelim_code.tst_example_fields import *
 

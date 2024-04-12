@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg
 from scipy.signal import convolve
-from scipy.fft import *
 from tests.prelim_code.prelim_utilis import *
 from tests.prelim_code.tst_example_fields import *
 
