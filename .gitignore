@@ -10,7 +10,6 @@ examples/pytraction/*
 .bash_history/
 .ssh/*
 .vscode-server/*
-.idea/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
