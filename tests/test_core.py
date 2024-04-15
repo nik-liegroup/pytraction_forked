@@ -15,12 +15,12 @@ def test_prediction_models():
 
     # No models loaded
     config = TractionForceConfig(
-        E=elastic_modulus,
+        elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
         config_path=config_path,
         window_size=32,
         meshsize=16,
-        s=0.45
+        poisson_ratio=0.45
     )
 
     assert config.cnn is None
@@ -29,12 +29,12 @@ def test_prediction_models():
 
     # Models loaded
     config = TractionForceConfig(
-        E=elastic_modulus,
+        elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
         config_path=config_path,
         window_size=0,
         meshsize=16,
-        s=0.45,
+        poisson_ratio=0.45,
         segment=True
     )
 
@@ -50,12 +50,12 @@ def test_load_data():
     config_path = os.path.join("example_data", "example_config.yaml")
 
     config = TractionForceConfig(
-        E=elastic_modulus,
+        elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
         config_path=config_path,
         window_size=32,
         meshsize=16,
-        s=0.45
+        poisson_ratio=0.45
     )
 
     # Load standard (t,c,w,h) image and (c,w,h) reference
@@ -97,12 +97,12 @@ def test_process_stack():
     config_path = os.path.join("example_data", "example_config.yaml")
 
     config = TractionForceConfig(
-        E=elastic_modulus,
+        elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
         config_path=config_path,
         window_size=16,
         meshsize=8,
-        s=0.45
+        poisson_ratio=0.45
     )
 
     img_path = os.path.join("example_data", "example3_zstack", "2DTFM_300Pa_PAAGel_RGCs_TimeSeries.tif")

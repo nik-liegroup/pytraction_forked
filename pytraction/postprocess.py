@@ -7,7 +7,7 @@ from typing import Tuple, Type, Union
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.integrate import simps
 from pytraction.tractionforcedataset import TractionForceDataset
-from pytraction.utils import set_cbar_max, interp_mask2grid
+from pytraction.utils import interp_mask2grid
 
 
 def tfm_plot(
@@ -131,6 +131,7 @@ def tfm_plot(
         ax[0].quiver(pos_x, pos_y, vec_x, vec_y)
 
     # Plot mask
+    tfm_frame = tfm_dataset[0]
     if mask is False:
         mask = np.full((tfm_frame["cell_image"][0]).shape, 255)
         mask = np.ma.masked_where(mask == 255, mask)
@@ -177,8 +178,7 @@ def tfm_savegif(figs: list, sys_path: str, fps: float = 5):
 
 def strain_energy(tfm_dataset: type(TractionForceDataset),
                   frame: int,
-                  mask: Union[bool, np.ndarray] = False,
-                  pix_per_mu: float = 1):
+                  mask: Union[bool, np.ndarray] = False):
     """
     Calculates strain energy of the displacement and traction field in the spatial domain.
     """
@@ -201,14 +201,12 @@ def strain_energy(tfm_dataset: type(TractionForceDataset),
     # Calculate inner product of traction and displacement field
     energy_dens = np.flipud(vec_f[:, :, 0] * vec_u[:, :, 0] + vec_f[:, :, 1] * vec_u[:, :, 1])
 
-    # Scale to pico Joule (pN/m) units
-    energy_dens = energy_dens * 10 ** (-6) / pix_per_mu ** 3
-
     # Flatten vectors to define integration intervals spaced accordingly to grid
     x = pos[0, :, 0].reshape(1, -1).flatten()
     y = pos[:, 0, 1].reshape(1, -1).flatten()
 
     # Integrate energy density over whole domain
+    # For displacements in micro-meter and tractions in Pa, this yields an energy in pico Joule (pN/m) units
     energy = 0.5 * simps(simps(energy_dens, y), x)
 
     return energy_dens, energy

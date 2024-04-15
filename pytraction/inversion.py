@@ -73,7 +73,7 @@ def traction_bem(pos, method, s, elastic_modulus):
 
 
 def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_z=None, zdepth=0, slim=False):
-    kxx, kyy, ft_ux, ft_uy, meshsize_x, meshsize_y= ft_2Dvector_field(pos=pos, vec=vec)
+    kxx, kyy, ft_ux, ft_uy, meshsize_x, meshsize_y = ft_2Dvector_field(pos=pos, vec=vec)
 
     if lambd is None:
         ft_gxx, ft_gxy, ft_gyy = kernel_ft(kxx, kyy, s, elastic_modulus)
@@ -83,7 +83,6 @@ def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_z=None, z
             ft_gxx, ft_gxy, ft_gyy = kernel_ft_slim(kxx, kyy, lambd, s, elastic_modulus)
 
         else:
-            # ToDo: Assumes same scaling factor for z as for x,y?
             # Get number of pixels in z-direction
             z = zdepth / scaling_z
 

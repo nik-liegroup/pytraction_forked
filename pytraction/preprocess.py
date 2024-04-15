@@ -6,8 +6,8 @@ from shapely import geometry
 from pytraction.utils import bead_density
 
 
-def _get_raw_frames(img_stack: np.ndarray, ref_stack: Union[np.ndarray, None], frame: int, bead_channel: int,
-                    cell_channel: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def get_raw_frames(img_stack: np.ndarray, ref_stack: Union[np.ndarray, None], frame: int, bead_channel: int,
+                   cell_channel: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Extract normalized bead frame from image and reference stack and get cell channel from image stack.
     """

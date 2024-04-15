@@ -177,9 +177,9 @@ def interp_vec2grid(
 def calculate_traction_map(pos: np.array,
                            vec_u: np.array,
                            beta: float,
-                           s: float,
+                           poisson_ratio: float,
                            scaling_z: float,
-                           E: float,
+                           elastic_modulus: float,
                            method: str = 'FT'):
     """
     Calculates 2D traction map given the displacement vector field and the noise value beta using an FFT or FEM
@@ -188,28 +188,29 @@ def calculate_traction_map(pos: np.array,
     # Get differential operator matrix for lambda estimation
     _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
                                                           vec=vec_u,
-                                                          s=s,
-                                                          elastic_modulus=E,
+                                                          s=poisson_ratio,
+                                                          elastic_modulus=elastic_modulus,
                                                           lambd=None,
                                                           scaling_z=scaling_z,
                                                           zdepth=0)
     # Predict lambda for tikhonov regularization from bayesian model
     lamd, evidence_one = optimal_lambda(
-        pos=pos, vec_u=vec_u, beta=beta, E=E, s=s, scaling_z=scaling_z, gamma_glob=gamma_glob
+        pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
+        gamma_glob=gamma_glob
     )
 
     if method == 'FT':
         # Calculate traction field in fourier space and transform back to spatial domain
         fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
                                                        vec=vec_u,
-                                                       s=s,
-                                                       elastic_modulus=E,
+                                                       s=poisson_ratio,
+                                                       elastic_modulus=elastic_modulus,
                                                        lambd=lamd,
                                                        scaling_z=scaling_z,
                                                        zdepth=0)
 
     elif method == 'BEM':
-        gamma_glob = traction_bem(pos=pos, method='conv', s=s, elastic_modulus=E)
+        gamma_glob = traction_bem(pos=pos, method='conv', s=poisson_ratio, elastic_modulus=elastic_modulus)
         fx, fy = tikhonov_simple(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
 
     else:

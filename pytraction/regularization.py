@@ -8,14 +8,14 @@ from pytraction.inversion import traction_fourier
 
 
 def minus_logevidence(
-    alpha: float,
-    pos: np.ndarray,
-    vec_u: np.ndarray,
-    gamma_glob,
-    beta: float,
-    E,
-    s,
-    scaling_z
+        alpha: float,
+        pos: np.ndarray,
+        vec_u: np.ndarray,
+        gamma_glob,
+        beta: float,
+        elastic_modulus,
+        s,
+        scaling_z
 ):
     """
     Calculate minus logevidence.
@@ -28,9 +28,9 @@ def minus_logevidence(
 
     # Create identity matrix
     gamma_dim = gamma_glob.shape[0]
-    id = spdiags(data=np.ones((gamma_dim)), diags=(0), m=gamma_dim, n=gamma_dim)
+    id = spdiags(data=np.ones(gamma_dim), diags=0, m=gamma_dim, n=gamma_dim)
 
-    # Collaps matrix products
+    # Collapse matrix products
     XX = csr_matrix(gamma_glob).T * csr_matrix(gamma_glob)
     BX = (2 * beta / gamma_dim) * csr_matrix(XX)
     C = (2 / gamma_dim) * id
@@ -41,13 +41,13 @@ def minus_logevidence(
 
     # Get fourier transforms of traction field
     _, _, ft_fx, ft_fy, _, _, _, _, _ = traction_fourier(pos=pos,
-                                                       vec=vec_u,
-                                                       s=s,
-                                                       elastic_modulus=E,
-                                                       lambd=lambd,
-                                                       scaling_z=scaling_z,
-                                                       zdepth=0,
-                                                       slim=True)
+                                                         vec=vec_u,
+                                                         s=s,
+                                                         elastic_modulus=elastic_modulus,
+                                                         lambd=lambd,
+                                                         scaling_z=scaling_z,
+                                                         zdepth=0,
+                                                         slim=True)
 
     f_glob = np.array([ft_fx.flatten(), ft_fy.flatten()]).flatten()
     f_glob = np.expand_dims(f_glob, axis=1)
@@ -73,7 +73,7 @@ def minus_logevidence(
 
 
 def optimal_lambda(
-    pos: np.ndarray, vec_u: np.ndarray, beta: float, E: float, s:float, scaling_z:float, gamma_glob
+        pos: np.ndarray, vec_u: np.ndarray, beta: float, elastic_modulus: float, s: float, scaling_z: float, gamma_glob
 ):
     """
     Calculate optimal lambda value.
@@ -88,16 +88,16 @@ def optimal_lambda(
         pos=pos,
         vec_u=vec_u,
         beta=beta,
-        E=E,
+        elastic_modulus=elastic_modulus,
         s=s,
         scaling_z=scaling_z,
-        gamma_glob = gamma_glob,
+        gamma_glob=gamma_glob,
     )
 
     # Golden section search to find alpha at minimum of -log(Evidence)
     alpha_opt = optimize.fminbound(target, alpha1, alpha2, disp=3)
 
-    if (alpha_opt > alpha1 * 0.9) and (alpha_opt < 0.9 * alpha2): # Optimal alpha value is not close to boundary
+    if (alpha_opt > alpha1 * 0.9) and (alpha_opt < 0.9 * alpha2):  # Optimal alpha value is not close to boundary
         evidence_one = -target(alpha_opt)
         lambd = alpha_opt / beta
 
@@ -115,7 +115,7 @@ def optimal_lambda(
                 pos=pos,
                 vec_u=vec_u,
                 beta=beta,
-                E=E,
+                elastic_modulus=elastic_modulus,
                 s=s,
                 scaling_z=scaling_z,
                 gamma_glob=gamma_glob,
@@ -151,11 +151,10 @@ def tikhonov_simple(gamma_glob, vec_u, lambd):
     j_max = uy.shape[1]
     u = np.array([ux.flatten(), uy.flatten()]).flatten()
 
-    aa = gamma_glob.shape[1]
-    c = np.ones(aa)
-    C = np.diag(c)
+    gamma_dim = gamma_glob.shape[0]
+    id = spdiags(data=np.ones(gamma_dim), diags=0, m=gamma_dim, n=gamma_dim)
 
-    f = np.linalg.inv(gamma_glob.T @ gamma_glob + lambd * C) @ (gamma_glob.T @ u)
-    fx = f[:i_max*j_max].reshape(i_max, j_max).T
+    f = np.linalg.inv(gamma_glob.T @ gamma_glob + lambd * id) @ (gamma_glob.T @ u)
+    fx = f[:i_max * j_max].reshape(i_max, j_max).T
     fy = f[i_max * j_max:].reshape(i_max, j_max).T
     return fx, fy

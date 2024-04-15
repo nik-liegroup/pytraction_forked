@@ -9,8 +9,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.sparse import linalg
 from scipy.interpolate import interp2d
 
-from pytraction.tractionforcedataset import TractionForceDataset
-
 
 def bead_density(img: np.ndarray) -> float:
     """
@@ -90,9 +88,6 @@ def sparse_cholesky(A):
 
 
 def clahe(data: np.ndarray) -> np.ndarray:
-    """
-
-    """
     img = cv2.cvtColor(data, cv2.COLOR_GRAY2BGR)  # Convert COLOR_GRAY2BGR image to COLOR_BGR2LAB color space
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)  # Convert COLOR_BGR2LAB image to LAB color space
     l, a, b = cv2.split(lab)  # Separate image into its lightness (L) and color (A and B) components
