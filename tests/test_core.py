@@ -15,12 +15,12 @@ def test_prediction_models():
 
     # No models loaded
     config = TractionForceConfig(
+        config_path=config_path,
         elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
-        config_path=config_path,
+        poisson_ratio=0.5,
         window_size=32,
-        meshsize=16,
-        poisson_ratio=0.45
+        meshsize=16
     )
 
     assert config.cnn is None
@@ -29,12 +29,12 @@ def test_prediction_models():
 
     # Models loaded
     config = TractionForceConfig(
+        config_path=config_path,
         elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
-        config_path=config_path,
+        poisson_ratio=0.5,
         window_size=0,
         meshsize=16,
-        poisson_ratio=0.45,
         segment=True
     )
 
@@ -50,12 +50,12 @@ def test_load_data():
     config_path = os.path.join("example_data", "example_config.yaml")
 
     config = TractionForceConfig(
+        config_path=config_path,
         elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
-        config_path=config_path,
+        poisson_ratio=0.5,
         window_size=32,
-        meshsize=16,
-        poisson_ratio=0.45
+        meshsize=16
     )
 
     # Load standard (t,c,w,h) image and (c,w,h) reference
@@ -97,19 +97,26 @@ def test_process_stack():
     config_path = os.path.join("example_data", "example_config.yaml")
 
     config = TractionForceConfig(
+        config_path=config_path,
         elastic_modulus=elastic_modulus,
         scaling_factor=scaling_factor,
-        config_path=config_path,
-        window_size=16,
-        meshsize=8,
-        poisson_ratio=0.45
+        poisson_ratio=0.5,
+        window_size=32,
+        meshsize=16
     )
 
     img_path = os.path.join("example_data", "example3_zstack", "2DTFM_300Pa_PAAGel_RGCs_TimeSeries.tif")
     ref_path = os.path.join("example_data", "example3_zstack", "2DTFM_300Pa_PAAGel_RGCs_Reference.tif")
 
-    img, ref, roi = config.load_data(img_path, ref_path, roi_path=None, z_proj=True)
+    img, ref, roi = config.load_data(img_path=img_path, ref_path=ref_path, roi_path=None, z_proj=True)
 
-    log = process_stack(img[:, :, :, :], ref, config, roi, bead_channel=1, cell_channel=0, crop=False, noise=10)
+    log = process_stack(img_stack=img[:, :, :, :],
+                        ref_stack=ref,
+                        roi=roi,
+                        config=config,
+                        cell_channel=0,
+                        bead_channel=1,
+                        crop=False,
+                        noise=10)
 
     assert type(log) is TractionForceDataset

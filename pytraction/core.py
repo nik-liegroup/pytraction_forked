@@ -59,7 +59,7 @@ class TractionForceConfig(object):
         for k, v in kwargs.items():
             self.config["settings"][k] = v
 
-        if type(self.config["piv"]["window_size"]) is not int:
+        if (self.config["piv"]["window_size"] is None) or (self.config["piv"]["window_size"] == 0):
             # Load K-nearest neighbors model (KNN) to predict minimum window size based on bead density
             self.knn = self._get_knn_model()
         else:
@@ -195,7 +195,7 @@ class TractionForceConfig(object):
             raise TypeError(msg)
 
         # z-slice projection
-        if img_meta["slices"] > 1:
+        if "slices" in img_meta:
             assert len(img.shape) == 5
             if z_proj is True:
                 img = np.max(img, axis=1)
@@ -208,28 +208,26 @@ class TractionForceConfig(object):
                 msg = f"Central z-slice of 3D image stack was extracted and the new stack shape is {img.shape}."
                 print(msg)
         else:
-            msg = (f"Please ensure that the input image format is either (t,c,w,h) or (t,z,c,w,h), the current shape "
-                   f"is {img.shape}.")
-            raise RuntimeWarning(msg)
+            assert len(img.shape) == 4, (f"Please ensure that the input image format is either (t,c,w,h) or "
+                                         f"(t,z,c,w,h),the current shape is {img.shape}.")
 
         if ref is None:
             msg = f"Using dynamic reference frame for PIV calculations."
             print(msg)
-        elif ref_meta["slices"] > 1:
+        elif "slices" in ref_meta:
             assert len(ref.shape) == 4
             if z_proj is True:
                 ref = np.max(ref, axis=0)
                 msg = f"3D reference stack was projected to a single z-plane and the new stack shape is {ref.shape}."
                 print(msg)
             else:
-                z_centre = img.shape[1] // 2
+                z_centre = ref.shape[1] // 2
                 ref = np.squeeze(ref[z_centre:z_centre + 1, :, :, :])
                 msg = f"Central z-slice of 3D reference stack was extracted and the new stack shape is {ref.shape}."
                 print(msg)
         else:
-            msg = (f"Please ensure that the reference image format is either (c,w,h) or (z,c,w,h), the current shape "
-                   f"is {ref.shape}.")
-            raise RuntimeWarning(msg)
+            assert len(ref.shape) == 3, (f"Please ensure that the reference image format is either (c,w,h) or "
+                                         f"(z,c,w,h), the current shape is {ref.shape}.")
 
         return img, ref, roi
 

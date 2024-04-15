@@ -1,7 +1,5 @@
-# pytraction example config file
-
 piv:
-  window_size: 0
+  window_size: 8
   overlap_ratio: 0.5
   dt: 1
   correlation_method: circular
@@ -11,12 +9,12 @@ piv:
   normalized_correlation: False
   use_vectorized: False
 
-tfm:
-  E: 1000
-  s: null
-  meshsize: null
-  scaling_factor: 9.64
-  scaling_z: 2
+tfm: 
+  elastic_modulus: null
+  scaling_factor: null
+  poisson_ratio: 0.5
+  meshsize: 8
+  scaling_z: 1
 
 settings:
   cell_channel: 0
