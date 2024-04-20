@@ -13,7 +13,7 @@ from shapely import geometry
 from pytraction.tractionforcedataset import TractionForceDataset
 from pytraction.net.dataloader import get_preprocessing
 from pytraction.preprocess import get_min_window_size, get_raw_frames
-from pytraction.process import calculate_traction_map, iterative_piv, interp_vec2grid
+from pytraction.process import calculate_traction_map, compute_piv, interp_vec2grid
 from pytraction.roi import roi_loaders, load_frame_roi, create_crop_mask_targets, get_polygon_and_roi
 from pytraction.noise import get_noise
 from pytraction.tractionforcedataset import write_tfm_results, write_tfm_metadata
@@ -296,7 +296,7 @@ def process_stack(
             img, ref, cell_img, mask = create_crop_mask_targets(img=img, ref=ref, cell_img=cell_img, pts=pts, crop=crop)
 
             # Perform PIV to calculate displacement vectors (u, v) for positions (x, y)
-            x, y, u, v, dx, dy, drift_corrected_stack = iterative_piv(img=img, ref=ref, config=config)
+            x, y, u, v, dx, dy, drift_corrected_stack = compute_piv(img=img, ref=ref, config=config)
 
             # Calculate noise value beta inside ROI, segmented cell or whole image
             beta = get_noise(x=x, y=y, u=u, v=v, polygon=polygon, noise=noise)

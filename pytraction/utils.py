@@ -168,10 +168,10 @@ def interp_mask2grid(mask: np.ndarray, pos: np.ndarray):
     y_target = np.linspace(0, 1, pos.shape[1])
 
     # Create interpolation function
-    interpolator = interp2d(x_orig, y_orig, mask, kind='linear')
+    interpolator = interp2d(x=x_orig, y=y_orig, z=mask, kind='linear')
 
     # Interpolate mask to fit the vector field size
-    interp_mask = interpolator(x_target, y_target)
+    interp_mask = interpolator(x_target, y_target).T
 
     interp_mask = np.where(interp_mask > 150, True, False)
 
