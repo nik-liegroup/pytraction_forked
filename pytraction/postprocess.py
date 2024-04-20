@@ -34,6 +34,7 @@ def tfm_plot(
     @param  figsize: Size (width, height) of plot in inch.
     @param  cbar_label: Specify title displayed on y-axis
     """
+
     # Get full identifier names for corresponding vector field
     if vec_field == "piv_disp":
         vec_field = "deformation"
@@ -76,11 +77,6 @@ def tfm_plot(
 
         pos.append(tfm_frame[pos_field][0])
         vec.append(tfm_frame[vec_field][0])
-
-        if vec_field != "trct":
-            vec_bg = []
-            vec_bg.append(tfm_frame["traction"][0])
-
         corr_stack.append(tfm_frame["drift_corrected_stack"][0])
         cell_img.append(tfm_frame["cell_image"][0])
 
@@ -90,10 +86,6 @@ def tfm_plot(
 
     pos_x, pos_y = pos[:, :, 0], pos[:, :, 1]
     vec_x, vec_y = vec[:, :, 0], vec[:, :, 1]
-
-    if vec_field != "trct":
-        vec_bg = np.mean(vec_bg, axis=0)
-        vec_bg_x, vec_bg_y = vec_bg[:, :, 0], vec_bg[:, :, 1]
 
     # Create plots
     fig, ax = plt.subplots(1, 2, figsize=figsize)
@@ -113,10 +105,7 @@ def tfm_plot(
     else:
         if heat_map is True:
             # Calculate background traction map
-            if vec_field != "trct":
-                scalar_map = np.sqrt(vec_bg_x ** 2 + vec_bg_y ** 2)
-            else:
-                scalar_map = np.sqrt(vec_x ** 2 + vec_y ** 2)
+            scalar_map = np.sqrt(vec_x ** 2 + vec_y ** 2)
             scalar_map = np.flipud(scalar_map)
         elif type(heat_map) is np.ndarray:
             scalar_map = heat_map
@@ -170,7 +159,7 @@ def tfm_savegif(figs: list, sys_path: str, fps: float = 5):
     Creates .gif movie from matplotlib figures with provided frames per second.
     """
     # Set colorbar maximum of all figures equally to the largest
-    #figs, vmax = set_cbar_max(figs)  # ToDo: Fix
+    # figs, vmax = set_cbar_max(figs)  # ToDo: Fix
 
     images = []
     for fig in figs:
@@ -181,9 +170,7 @@ def tfm_savegif(figs: list, sys_path: str, fps: float = 5):
         # Rewind the pointer to beginning of file and read
         buffer.seek(0)
         image = imageio.imread(buffer)
-
-        # Append while removing alpha channel
-        images.append(image[:,:,:3])
+        images.append(image)
 
     # Save the images to a GIF file
     imageio.mimsave(sys_path, images, duration=1/fps)
@@ -201,8 +188,7 @@ def strain_energy(tfm_dataset: type(TractionForceDataset),
         mask = np.full((tfm_frame["position_interpolated"][0]).shape, 255)
         mask = np.where(mask == 255, True, False)
     elif mask is True:
-        mask = interp_mask2grid(mask=tfm_frame["mask_roi"][0], pos=tfm_frame["position_interpolated"][0])
-        mask = np.flipud(mask)
+        mask = np.flipud(interp_mask2grid(mask=tfm_frame["mask_roi"][0], pos=tfm_frame["position_interpolated"][0]))
         mask = np.stack((mask, mask), 2)
     elif type(mask) is not np.ndarray:
         msg = f"{type(mask)} is not implemented for the mask variable, please use bool or np.ndarray types."
@@ -221,6 +207,6 @@ def strain_energy(tfm_dataset: type(TractionForceDataset),
 
     # Integrate energy density over whole domain
     # For displacements in micro-meter and tractions in Pa, this yields an energy in pico Joule (pN/m) units
-    energy = 0.5 * simps(simps(energy_dens, x), y)
+    energy = 0.5 * simps(simps(energy_dens, y), x)
 
     return energy_dens, energy
