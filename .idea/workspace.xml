@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="aa5a2a67-0e00-4d52-a210-93534bed77ea" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/piv.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/piv.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/widim.cp38-win_amd64.pyd" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/widim.cp38-win_amd64.pyd" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-    </list>
+    <list default="true" id="aa5a2a67-0e00-4d52-a210-93534bed77ea" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -58,7 +51,7 @@
       <workItem from="1713699766846" duration="591000" />
       <workItem from="1713715928958" duration="4000" />
       <workItem from="1713716451966" duration="1000" />
-      <workItem from="1713716461274" duration="4899000" />
+      <workItem from="1713716461274" duration="5237000" />
     </task>
     <servers />
   </component>
@@ -66,6 +59,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/setup_py$Analysis_RetinalExplants_2D_TFM___Example.coverage" NAME="Analysis_RetinalExplants_2D_TFM - Example Coverage Results" MODIFIED="1713721093247" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Desktop/2DTFM_10kPa_PAAGel_Fibroblasts_Example" />
+    <SUITE FILE_PATH="coverage/setup_py$Analysis_RetinalExplants_2D_TFM___Example.coverage" NAME="Analysis_RetinalExplants_2D_TFM - Example Coverage Results" MODIFIED="1713721632899" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Desktop/2DTFM_10kPa_PAAGel_Fibroblasts_Example" />
   </component>
 </project>
