@@ -81,7 +81,7 @@ options = {
     "packages": PACKAGES,
     #"ext_modules": cythonize(ext_modules),
     "include_package_data": True,
-    "package_data": {'pytraction': ['*.pth', '*.pickle', '.pyx', '*.pyd', '*.so']},
+    "package_data": {'pytraction': ['models/*.pth', 'models/*.pickle', '.pyx', '*.pyd', '*.so']},
     "setup_requires": SETUP_REQUIRES,
     "test_requires": TESTS_REQUIRES,
     "install_requires": REQUIREMENTS,
