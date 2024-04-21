@@ -61,7 +61,7 @@ TESTS_REQUIRES = ("pytest-cov", "codecov")
 
 PACKAGES = [
     "pytraction",
-    "pytraction.net",
+    "pytraction.net"
 ]
 
 
@@ -74,7 +74,7 @@ options = {
     "classifiers": CLASSIFIERS,
     "packages": PACKAGES,
     "include_package_data": True,
-    "package_data": {'pytraction': ['*.pth', '*.pickle',]},
+    "package_data": {'pytraction': ['*.pth', '*.pickle', '*.pyd']},
     "setup_requires": SETUP_REQUIRES,
     "test_requires": TESTS_REQUIRES,
     "install_requires": REQUIREMENTS,
