@@ -61,8 +61,8 @@ ext_modules = [Extension(name="pytraction.widim",
                          include_dirs=[np.get_include()])]
 
 
-SETUP_REQUIRES = ("pytest-cov", "pytest-runner", "pytest", "codecov", "Cython", "numpy")
-TESTS_REQUIRES = ("pytest-cov", "codecov")
+SETUP_REQUIRES = ["pytest-cov", "pytest-runner", "pytest", "codecov", "Cython", "numpy"]
+TESTS_REQUIRES = ["pytest-cov", "codecov"]
 
 
 PACKAGES = [
