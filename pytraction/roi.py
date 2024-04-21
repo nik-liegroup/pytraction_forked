@@ -2,7 +2,6 @@ import os
 import zipfile
 import pandas as pd
 import numpy as np
-import shapely
 import cv2
 
 from shapely import geometry
@@ -117,7 +116,7 @@ def load_frame_roi(roi, frame: int, nframes: int) -> Union[list, None]:
 def get_polygon_and_roi(cell_img: np.ndarray,
                         roi: list,
                         config
-                        ) -> Union[type(shapely.Polygon), type(np.ndarray)]:
+                        ) -> Union[type(geometry.Polygon), type(np.ndarray)]:
     """
     Returns polygon shape of cell outline from CNN model prediction or ROI definition.
     """

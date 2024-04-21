@@ -1,13 +1,28 @@
 piv:
-  window_size: 8
+  # Choose PIV method
+  comp_method: widim
+  # General PIV settings
+  window_size: 64
   overlap_ratio: 0.5
   dt: 1
-  correlation_method: circular
   subpixel_method: gaussian
   sig2noise_method: peak2peak
+  sig2noise_threshold: 1.5
   width: 2
+
+  # Only used for extended_area_piv
+  correlation_method: circular
   normalized_correlation: False
   use_vectorized: False
+  outliers_method: localmean
+
+  # Only used for widim_piv
+  coarse_factor: 0
+  validation_method: mean_velocity
+  trust_1st_iter: 0
+  validation_iter: 3
+  tolerance: 1.5
+  nb_iter_max: 1
 
 tfm: 
   elastic_modulus: null
