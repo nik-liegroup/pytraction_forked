@@ -1,10 +1,12 @@
 import numpy as np
 import cv2
 from typing import Tuple
+import os
+
 from openpiv import pyprocess, validation, filters, scaling, tools
 from openpiv.windef import *
-from pytraction.widim import WiDIM
 from pytraction.regularization import *
+from pytraction.widim import WiDIM
 
 
 def extended_area_piv(img: np.ndarray,
