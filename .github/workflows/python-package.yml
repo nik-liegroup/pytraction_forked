@@ -29,6 +29,9 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest-cov
         if (Test-Path requirements.txt) { pip install -r requirements.txt }
+    - name: List installed packages
+      run: |
+        pip list
     - name: Install locally
       run: |
         pip install -e .
