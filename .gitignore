@@ -1,6 +1,6 @@
 # Additional
 building/*
-tests/prelim_code
+/prelim_code/
 .bash_history/
 .ssh/*
 .vscode-server/*
