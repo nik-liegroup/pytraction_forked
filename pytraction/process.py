@@ -13,8 +13,8 @@ from pytraction.inversion import traction_fourier, traction_bem
 
 def compute_piv(img: np.ndarray, ref: np.ndarray, config):
     """
-    Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy), displacement vectors (u,v)
-    for positions (x,y) and image stack.
+    Perform PIV on drift corrected images and returns drift corrections (dx,dy), displacement vectors (u,v) for
+    positions (x,y) and image stack.
     """
     # Check if displacements are too small, which would result in an iterative decrease in window size
     if np.allclose(img, ref, rtol=1e-05, atol=1e-08):
@@ -31,13 +31,13 @@ def compute_piv(img: np.ndarray, ref: np.ndarray, config):
     drift_corrected_stack = np.stack([img, ref])
 
     # Calculate displacement field
-    if config.config["piv"]["comp_method"] == "widim":
+    if config.config["piv"]["piv_method"] == "widim":
         x, y, u, v = widim_piv(img, ref, config)
-    elif config.config["piv"]["comp_method"] == "extended_area":
+    elif config.config["piv"]["piv_method"] == "extended_area":
         x, y, u, v = extended_area_piv(img, ref, config)
     else:
-        msg = (f'{config.config["piv"]["comp_method"]} is not a valid PIV method, please choose "widim" or'
-               f'"extended_area."')
+        msg = (f'{config.config["piv"]["piv_method"]} is not a valid PIV method, please choose "widim" or'
+               f'"extended_area".')
         raise RuntimeError(msg)
 
     # Scale field form pixels to microns
@@ -132,14 +132,16 @@ def interp_vec2grid(
 def calculate_traction_map(pos: np.array,
                            vec_u: np.array,
                            beta: float,
-                           poisson_ratio: float,
-                           scaling_z: float,
-                           elastic_modulus: float,
-                           method: str = 'FT'):
+                           config):
     """
     Calculates 2D traction map given the displacement vector field and the noise value beta using an FFT or FEM
     (Boundary element method) approach.
     """
+    # Get settings for TFM calculation
+    poisson_ratio = config.config["tfm"]["poisson_ratio"]
+    scaling_z = config.config["tfm"]["scaling_z"]
+    elastic_modulus = config.config["tfm"]["elastic_modulus"]
+
     # Get differential operator matrix for lambda estimation
     _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
                                                           vec=vec_u,
@@ -154,7 +156,7 @@ def calculate_traction_map(pos: np.array,
         gamma_glob=gamma_glob
     )
 
-    if method == 'FT':
+    if config.config["tfm"]["tfm_method"] == "FT":
         # Calculate traction field in fourier space and transform back to spatial domain
         fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
                                                        vec=vec_u,
@@ -164,13 +166,13 @@ def calculate_traction_map(pos: np.array,
                                                        scaling_z=scaling_z,
                                                        zdepth=0)
 
-    elif method == 'BEM':
+    elif config.config["tfm"]["tfm_method"] == "BEM":
         gamma_glob = traction_bem(pos=pos, method='conv', s=poisson_ratio, elastic_modulus=elastic_modulus)
         fx, fy = tikhonov_simple(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
 
     else:
-        msg = ('Only fourier transform (FT) and boundary element method (BEM) are currently implemented to solve \
-         inverse problem.')
+        msg = (f'Only fourier transform "FT" and boundary element method "BEM" are currently implemented to solve \
+         inverse problem but {config.config["tfm"]["tfm_method"]} was selected.')
         raise RuntimeError(msg)
 
     vec_f = np.stack((fx, fy), axis=2)

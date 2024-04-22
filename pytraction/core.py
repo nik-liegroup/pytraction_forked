@@ -16,7 +16,7 @@ from pytraction.preprocess import get_min_window_size, get_raw_frames
 from pytraction.process import calculate_traction_map, compute_piv, interp_vec2grid
 from pytraction.roi import roi_loaders, load_frame_roi, create_crop_mask_targets, get_polygon_and_roi
 from pytraction.noise import get_noise
-from pytraction.tractionforcedataset import write_tfm_results, write_tfm_metadata
+from pytraction.tractionforcedataset import write_tfm_results
 
 
 class TractionForceConfig(object):
@@ -319,10 +319,7 @@ def process_stack(
                 pos=pos_interp,
                 vec_u=vec_interp,
                 beta=beta,
-                poisson_ratio=config.config["tfm"]["poisson_ratio"],
-                scaling_z=config.config["tfm"]["scaling_z"],
-                elastic_modulus=config.config["tfm"]["elastic_modulus"],
-                method='FT'
+                config=config
             )
 
             # Write results for the current frame to the open h5py file
