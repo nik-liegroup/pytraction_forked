@@ -2,12 +2,77 @@ import numpy as np
 from functools import partial
 import scipy.optimize as optimize
 from scipy.sparse import csr_matrix, spdiags
+from numpy.linalg import cholesky
 
 from pytraction.utils import sparse_cholesky, ft_2Dvector_field
 from pytraction.inversion import traction_fourier
 
 
 def minus_logevidence(
+        alpha: float,
+        beta: float,
+        vec_u: np.ndarray,
+        gamma_glob
+):
+    # Calculate traction field given current lambda
+    lambd = alpha / beta
+    vec_f = tikhonov_reg(gamma_glob, vec_u, lambd)
+
+    # Make global traction and deformation vector
+    f_glob = np.array([vec_f[:, :, 0].flatten(), vec_f[:, :, 1].flatten()]).flatten()
+    u_glob = np.array([vec_u[:, :, 0].flatten(), vec_u[:, :, 1].flatten()]).flatten()
+
+    # Create identity matrix
+    m, n = gamma_glob.shape
+    id = spdiags(data=np.ones(m), diags=0, m=m, n=n)
+
+    # Calculate cholesky decomposition for hessian matrix A
+    A = alpha * id + beta * gamma_glob.T @ gamma_glob
+    L = cholesky(A)
+    log_detA = 2 * np.sum(np.log(np.diag(L)))
+
+    # Formula for log evidence
+    evidence_value = - 0.5 * alpha * f_glob.T @ f_glob \
+                     - 0.5 * beta * (gamma_glob @ f_glob - u_glob).T @ (gamma_glob @ f_glob - u_glob) \
+                     - 0.5 * log_detA \
+                     - m * np.log(2 * np.pi) \
+                     + m * np.log(beta) \
+                     + n * np.log(alpha)
+
+    minus_evidence = - evidence_value.item()
+
+    return minus_evidence
+
+
+def bayesian_regularization(vec_u: np.ndarray, beta: float, gamma_glob):
+    # Standardize the differential operator gamma_glob along the columns to their spread
+    gamma_glob_sd = np.std(gamma_glob, axis=0)
+    gamma_glob_mean = np.mean(gamma_glob, axis=0)
+    gamma_glob = (gamma_glob - gamma_glob_mean) / gamma_glob_sd
+
+    # Standardize the deformation field to its mean
+    vec_u = (vec_u - np.mean(vec_u))
+
+    # Parameters for Golden Section Search
+    alpha_left = 1e-6  # Initial left alpha
+    alpha_right = 1e6  # Initial right alpha
+
+    # Set target function for optimization
+    target_func = partial(
+        minus_logevidence,
+        beta=beta,
+        vec_u=vec_u,
+        gamma_glob=gamma_glob
+    )
+
+    # Optimize minus_logevidence to get optimal alpha value
+    alpha_opt, fval, ierr, numfunc = optimize.fminbound(target_func, alpha_left, alpha_right, disp=3, full_output=True)
+    lambd = alpha_opt / beta
+
+    return lambd, fval
+
+
+def minus_logevidence_fourier(
         alpha: float,
         pos: np.ndarray,
         vec_u: np.ndarray,
@@ -72,7 +137,7 @@ def minus_logevidence(
     return evidence_value
 
 
-def optimal_lambda(
+def optimal_lambda_fourier(
         pos: np.ndarray, vec_u: np.ndarray, beta: float, elastic_modulus: float, s: float, scaling_z: float, gamma_glob
 ):
     """
@@ -84,7 +149,7 @@ def optimal_lambda(
 
     # Define target function to be minimized
     target = partial(
-        minus_logevidence,
+        minus_logevidence_fourier,
         pos=pos,
         vec_u=vec_u,
         beta=beta,
@@ -110,7 +175,7 @@ def optimal_lambda(
         alpha = np.linspace(alpha1, alpha2, 100)
         logevidence = alpha.copy()
         for index, value in np.ndenumerate(alpha):
-            logevidence[index] = minus_logevidence(
+            logevidence[index] = minus_logevidence_fourier(
                 alpha=value,
                 pos=pos,
                 vec_u=vec_u,
@@ -141,20 +206,31 @@ def optimal_lambda(
     return lambd, evidence_one
 
 
-def tikhonov_simple(gamma_glob, vec_u, lambd):
+def tikhonov_reg(gamma_glob: np.ndarray,
+                 vec_u: np.ndarray,
+                 lambd: float):
     """
-    Tikhonov regularization.
+    Simple tikhonov regularization for given regularization parameter lambda.
     """
     ux = vec_u[:, :, 0]
     uy = vec_u[:, :, 1]
     i_max = ux.shape[0]
     j_max = uy.shape[1]
-    u = np.array([ux.flatten(), uy.flatten()]).flatten()
 
-    gamma_dim = gamma_glob.shape[0]
-    id = spdiags(data=np.ones(gamma_dim), diags=0, m=gamma_dim, n=gamma_dim)
+    # Make global deformation vector
+    u_glob = np.array([ux.flatten(), uy.flatten()]).flatten()
 
-    f = np.linalg.inv(gamma_glob.T @ gamma_glob + lambd * id) @ (gamma_glob.T @ u)
-    fx = f[:i_max * j_max].reshape(i_max, j_max).T
-    fy = f[i_max * j_max:].reshape(i_max, j_max).T
-    return fx, fy
+    # Create identity matrix
+    gamma_dim = gamma_glob.shape[1]
+    c = np.ones(gamma_dim)
+    id = np.diag(c)
+
+    # Tikhonov-regularization with strength lambda
+    f_glob = np.linalg.inv(gamma_glob.T @ gamma_glob + lambd * id) @ (gamma_glob.T @ u_glob)
+
+    # Transform back to vector field stack
+    fx = f_glob[:i_max*j_max].reshape((i_max, j_max))
+    fy = f_glob[i_max*j_max:].reshape((i_max, j_max))
+    vec_f = np.stack((fx, fy), axis=2)
+
+    return vec_f

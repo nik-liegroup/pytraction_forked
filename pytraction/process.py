@@ -2,17 +2,19 @@ import numpy as np
 import cv2
 from typing import Tuple
 from openpiv import pyprocess, validation, filters, scaling, tools
+from openpiv.windef import *
 from scipy.interpolate import griddata
-from pytraction.regularization import optimal_lambda
+from pytraction.regularization import optimal_lambda_fourier
 from pytraction.utils import remove_boarder_from_aligned
+from pytraction.piv import extended_area_piv, widim_piv
 from pytraction.regularization import *
 from pytraction.inversion import traction_fourier, traction_bem
 
 
-def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
+def compute_piv(img: np.ndarray, ref: np.ndarray, config):
     """
-    Perform iterative PIV on drift corrected images and returns drift corrections (dx,dy), displacement vectors (u,v)
-    for positions (x,y) and image stack.
+    Perform PIV on drift corrected images and returns drift corrections (dx,dy), displacement vectors (u,v) for
+    positions (x,y) and image stack.
     """
     # Check if displacements are too small, which would result in an iterative decrease in window size
     if np.allclose(img, ref, rtol=1e-05, atol=1e-08):
@@ -25,11 +27,21 @@ def iterative_piv(img: np.ndarray, ref: np.ndarray, config):
         # Crop images to remove black borders
         img, ref = remove_boarder_from_aligned(img, ref)
 
-    # Calculate displacement field
-    x, y, u, v = compute_piv(img, ref, config)
-
     # Create drift corrected stack
     drift_corrected_stack = np.stack([img, ref])
+
+    # Calculate displacement field
+    if config.config["piv"]["piv_method"] == "widim":
+        x, y, u, v = widim_piv(img, ref, config)
+    elif config.config["piv"]["piv_method"] == "extended_area":
+        x, y, u, v = extended_area_piv(img, ref, config)
+    else:
+        msg = (f'{config.config["piv"]["piv_method"]} is not a valid PIV method, please choose "widim" or'
+               f'"extended_area".')
+        raise RuntimeError(msg)
+
+    # Scale field form pixels to microns
+    x, y, u, v = scaling.uniform(x, y, u, v, scaling_factor=config.config["tfm"]["scaling_factor"])
 
     return x, y, u, v, dx, dy, drift_corrected_stack
 
@@ -72,63 +84,6 @@ def align_slice(img: np.ndarray, ref: np.ndarray) -> Tuple[int, int, np.ndarray]
     img = cv2.warpAffine(img, matrix, (cols, rows))
 
     return dx, dy, img
-
-
-def compute_piv(img: np.ndarray,
-                ref: np.ndarray,
-                config) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Compute deformation field using particle image velocimetry (PIV) with an implementation of window size coarsening.
-    """
-    config = config.config
-    overlap = int(config["piv"]["overlap_ratio"] * config["piv"]["window_size"])
-    try:
-        # Compute displacement field using a standard PIV cross-correlation algorithm
-        u0, v0, sig2noise = pyprocess.extended_search_area_piv(
-            ref.astype(np.int32),
-            img.astype(np.int32),
-            window_size=config["piv"]["window_size"],
-            overlap=overlap,
-            dt=config["piv"]["dt"],
-            search_area_size=config["piv"]["window_size"],
-            correlation_method=config["piv"]["correlation_method"],
-            subpixel_method=config["piv"]["subpixel_method"],
-            sig2noise_method=config["piv"]["sig2noise_method"],
-            width=config["piv"]["width"],
-            normalized_correlation=config["piv"]["normalized_correlation"],
-            use_vectorized=config["piv"]["use_vectorized"]
-        )
-
-        # Return coordinates for PIV vector field
-        x0, y0 = pyprocess.get_coordinates(image_size=ref.shape,
-                                           search_area_size=config["piv"]["window_size"],
-                                           overlap=overlap)
-
-        # Remove vectors in field which have a signal to noise ratio larger than the threshold
-        flags = validation.sig2noise_val(sig2noise, threshold=1.05)
-        u_f, v_f = filters.replace_outliers(u0, v0, flags, method='localmean', max_iter=5, kernel_size=2)
-
-        # Scale field form pixels to microns
-        x, y, u, v = scaling.uniform(x0, y0, u_f, v_f, scaling_factor=config["tfm"]["scaling_factor"])
-
-        # Transform from image to physical coordinates
-        x, y, u, v = tools.transform_coordinates(x, y, u, v)
-
-        return x, y, u, v
-
-    except Exception as e:
-        if isinstance(e, ZeroDivisionError):
-            # Reduce window size and call compute_piv again
-            config_tmp = config.copy()
-            config_tmp.config["piv"]["window_size"] = (
-                    config.config["piv"]["window_size"] // 2
-            )
-            print(
-                f"Reduced min window size to {config_tmp.config['piv']['window_size'] // 2} in recursive call"
-            )
-            return compute_piv(img, ref, config)
-        else:
-            raise e
 
 
 def interp_vec2grid(
@@ -177,29 +132,31 @@ def interp_vec2grid(
 def calculate_traction_map(pos: np.array,
                            vec_u: np.array,
                            beta: float,
-                           poisson_ratio: float,
-                           scaling_z: float,
-                           elastic_modulus: float,
-                           method: str = 'FT'):
+                           config):
     """
     Calculates 2D traction map given the displacement vector field and the noise value beta using an FFT or FEM
     (Boundary element method) approach.
     """
-    # Get differential operator matrix for lambda estimation
-    _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
-                                                          vec=vec_u,
-                                                          s=poisson_ratio,
-                                                          elastic_modulus=elastic_modulus,
-                                                          lambd=None,
-                                                          scaling_z=scaling_z,
-                                                          zdepth=0)
-    # Predict lambda for tikhonov regularization from bayesian model
-    lamd, evidence_one = optimal_lambda(
-        pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
-        gamma_glob=gamma_glob
-    )
+    # Get settings for TFM calculation
+    poisson_ratio = config.config["tfm"]["poisson_ratio"]
+    scaling_z = config.config["tfm"]["scaling_z"]
+    elastic_modulus = config.config["tfm"]["elastic_modulus"]
 
-    if method == 'FT':
+    if config.config["tfm"]["tfm_method"] == "FT":
+        # Get differential operator matrix for lambda estimation
+        _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
+                                                              vec=vec_u,
+                                                              s=poisson_ratio,
+                                                              elastic_modulus=elastic_modulus,
+                                                              lambd=None,
+                                                              scaling_z=scaling_z,
+                                                              zdepth=0)
+        # Predict lambda for tikhonov regularization from bayesian model
+        lamd, evidence_one = optimal_lambda_fourier(
+            pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
+            gamma_glob=gamma_glob
+        )
+
         # Calculate traction field in fourier space and transform back to spatial domain
         fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
                                                        vec=vec_u,
@@ -209,13 +166,15 @@ def calculate_traction_map(pos: np.array,
                                                        scaling_z=scaling_z,
                                                        zdepth=0)
 
-    elif method == 'BEM':
+    elif config.config["tfm"]["tfm_method"] == "BEM":
         gamma_glob = traction_bem(pos=pos, method='conv', s=poisson_ratio, elastic_modulus=elastic_modulus)
-        fx, fy = tikhonov_simple(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
+        lamd, evidence_one = bayesian_regularization(vec_u, beta, gamma_glob)
+        vec_f = tikhonov_reg(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
+        fx, fy = vec_f[:, :, 0].T, vec_f[:, :, 1].T
 
     else:
-        msg = ('Only fourier transform (FT) and boundary element method (BEM) are currently implemented to solve \
-         inverse problem.')
+        msg = (f'Only fourier transform "FT" and boundary element method "BEM" are currently implemented to solve \
+         inverse problem but {config.config["tfm"]["tfm_method"]} was selected.')
         raise RuntimeError(msg)
 
     vec_f = np.stack((fx, fy), axis=2)

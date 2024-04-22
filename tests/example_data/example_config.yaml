@@ -1,6 +1,6 @@
 piv:
   # Choose PIV method
-  comp_method: widim
+  piv_method: widim
   # General PIV settings
   window_size: 64
   overlap_ratio: 0.5
@@ -24,7 +24,10 @@ piv:
   tolerance: 1.5
   nb_iter_max: 1
 
-tfm: 
+tfm:
+  # Choose TFM method
+  tfm_method: FT
+  # General TFM settings
   elastic_modulus: null
   scaling_factor: null
   poisson_ratio: 0.5

@@ -5,6 +5,40 @@ from pytraction.kernels import *
 from pytraction.utils import *
 
 
+def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_z=None, zdepth=0, slim=False):
+    kxx, kyy, ft_ux, ft_uy, meshsize_x, meshsize_y = ft_2Dvector_field(pos=pos, vec=vec)
+
+    if lambd is None:
+        ft_gxx, ft_gxy, ft_gyy = kernel_ft(kxx, kyy, s, elastic_modulus)
+
+    else:
+        if slim:
+            ft_gxx, ft_gxy, ft_gyy = kernel_ft_slim(kxx, kyy, lambd, s, elastic_modulus)
+
+        else:
+            # Get number of pixels in z-direction
+            z = zdepth / scaling_z
+
+            ft_gxx, ft_gxy, ft_gyy = kernel_ft_reg(kxx, kyy, lambd, s, elastic_modulus, z, meshsize_x, meshsize_y)
+
+    # Calculate convolution of displacement field and Green's function in Fourier space
+    ft_fx = ft_gxx * ft_ux + ft_gxy * ft_uy
+    ft_fy = ft_gxy * ft_ux + ft_gyy * ft_uy
+
+    # Avoid non-zero net force induced by spurious traction field
+    ft_fx[0, 0] = 0
+    ft_fy[0, 0] = 0
+
+    # Compute inverse discrete Fourier transform of traction field
+    fx = (ifft2(ft_fx)).real
+    fy = (ifft2(ft_fy)).real
+
+    # Calculate differential operator in matrix form
+    gamma_glob = diff_operator(ft_gxx, ft_gxy, ft_gyy)
+
+    return fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, gamma_glob
+
+
 def traction_bem(pos, method, s, elastic_modulus):
     xx = pos[:, :, 0]
     yy = pos[:, :, 1]
@@ -70,37 +104,3 @@ def traction_bem(pos, method, s, elastic_modulus):
     gamma_glob = np.concatenate((gamma_r1, gamma_r2), axis=0)
 
     return gamma_glob
-
-
-def traction_fourier(pos, vec, s, elastic_modulus, lambd=None, scaling_z=None, zdepth=0, slim=False):
-    kxx, kyy, ft_ux, ft_uy, meshsize_x, meshsize_y = ft_2Dvector_field(pos=pos, vec=vec)
-
-    if lambd is None:
-        ft_gxx, ft_gxy, ft_gyy = kernel_ft(kxx, kyy, s, elastic_modulus)
-
-    else:
-        if slim:
-            ft_gxx, ft_gxy, ft_gyy = kernel_ft_slim(kxx, kyy, lambd, s, elastic_modulus)
-
-        else:
-            # Get number of pixels in z-direction
-            z = zdepth / scaling_z
-
-            ft_gxx, ft_gxy, ft_gyy = kernel_ft_reg(kxx, kyy, lambd, s, elastic_modulus, z, meshsize_x, meshsize_y)
-
-    # Calculate convolution of displacement field and Green's function in Fourier space
-    ft_fx = ft_gxx * ft_ux + ft_gxy * ft_uy
-    ft_fy = ft_gxy * ft_ux + ft_gyy * ft_uy
-
-    # Avoid non-zero net force induced by spurious traction field
-    ft_fx[0, 0] = 0
-    ft_fy[0, 0] = 0
-
-    # Compute inverse discrete Fourier transform of traction field
-    fx = (ifft2(ft_fx)).real
-    fy = (ifft2(ft_fy)).real
-
-    # Calculate differential operator in matrix form
-    gamma_glob = diff_operator(ft_gxx, ft_gxy, ft_gyy)
-
-    return fx, fy, ft_fx, ft_fy, ft_ux, ft_uy, kxx, kyy, gamma_glob
