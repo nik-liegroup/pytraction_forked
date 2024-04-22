@@ -4,7 +4,7 @@ from typing import Tuple
 from openpiv import pyprocess, validation, filters, scaling, tools
 from openpiv.windef import *
 from scipy.interpolate import griddata
-from pytraction.regularization import optimal_lambda
+from pytraction.regularization import optimal_lambda_fourier
 from pytraction.utils import remove_boarder_from_aligned
 from pytraction.piv import extended_area_piv, widim_piv
 from pytraction.regularization import *
@@ -151,7 +151,7 @@ def calculate_traction_map(pos: np.array,
                                                           scaling_z=scaling_z,
                                                           zdepth=0)
     # Predict lambda for tikhonov regularization from bayesian model
-    lamd, evidence_one = optimal_lambda(
+    lamd, evidence_one = optimal_lambda_fourier(
         pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
         gamma_glob=gamma_glob
     )
@@ -168,7 +168,8 @@ def calculate_traction_map(pos: np.array,
 
     elif config.config["tfm"]["tfm_method"] == "BEM":
         gamma_glob = traction_bem(pos=pos, method='conv', s=poisson_ratio, elastic_modulus=elastic_modulus)
-        fx, fy = tikhonov_simple(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
+        vec_f = tikhonov_reg(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
+        fx, fy = vec_f[:, :, 0].T, vec_f[:, :, 1].T
 
     else:
         msg = (f'Only fourier transform "FT" and boundary element method "BEM" are currently implemented to solve \
