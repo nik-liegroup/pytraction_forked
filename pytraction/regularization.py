@@ -69,7 +69,7 @@ def bayesian_regularization(vec_u: np.ndarray, beta: float, gamma_glob):
     alpha_opt, fval, ierr, numfunc = optimize.fminbound(target_func, alpha_left, alpha_right, disp=3, full_output=True)
     lambd = alpha_opt / beta
 
-    return lambd
+    return lambd, fval
 
 
 def minus_logevidence_fourier(

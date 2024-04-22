@@ -142,21 +142,21 @@ def calculate_traction_map(pos: np.array,
     scaling_z = config.config["tfm"]["scaling_z"]
     elastic_modulus = config.config["tfm"]["elastic_modulus"]
 
-    # Get differential operator matrix for lambda estimation
-    _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
-                                                          vec=vec_u,
-                                                          s=poisson_ratio,
-                                                          elastic_modulus=elastic_modulus,
-                                                          lambd=None,
-                                                          scaling_z=scaling_z,
-                                                          zdepth=0)
-    # Predict lambda for tikhonov regularization from bayesian model
-    lamd, evidence_one = optimal_lambda_fourier(
-        pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
-        gamma_glob=gamma_glob
-    )
-
     if config.config["tfm"]["tfm_method"] == "FT":
+        # Get differential operator matrix for lambda estimation
+        _, _, _, _, _, _, _, _, gamma_glob = traction_fourier(pos=pos,
+                                                              vec=vec_u,
+                                                              s=poisson_ratio,
+                                                              elastic_modulus=elastic_modulus,
+                                                              lambd=None,
+                                                              scaling_z=scaling_z,
+                                                              zdepth=0)
+        # Predict lambda for tikhonov regularization from bayesian model
+        lamd, evidence_one = optimal_lambda_fourier(
+            pos=pos, vec_u=vec_u, beta=beta, elastic_modulus=elastic_modulus, s=poisson_ratio, scaling_z=scaling_z,
+            gamma_glob=gamma_glob
+        )
+
         # Calculate traction field in fourier space and transform back to spatial domain
         fx, fy, _, _, _, _, _, _, _ = traction_fourier(pos=pos,
                                                        vec=vec_u,
@@ -168,6 +168,7 @@ def calculate_traction_map(pos: np.array,
 
     elif config.config["tfm"]["tfm_method"] == "BEM":
         gamma_glob = traction_bem(pos=pos, method='conv', s=poisson_ratio, elastic_modulus=elastic_modulus)
+        lamd, evidence_one = bayesian_regularization(vec_u, beta, gamma_glob)
         vec_f = tikhonov_reg(gamma_glob=gamma_glob, vec_u=vec_u, lambd=lamd)
         fx, fy = vec_f[:, :, 0].T, vec_f[:, :, 1].T
 

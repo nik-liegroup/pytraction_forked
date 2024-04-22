@@ -5,11 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="aa5a2a67-0e00-4d52-a210-93534bed77ea" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pytraction/process.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/process.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pytraction/regularization.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/regularization.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_inversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_inversion.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -116,7 +114,7 @@
       <workItem from="1713764714804" duration="264000" />
       <workItem from="1713765039125" duration="3773000" />
       <workItem from="1713801767510" duration="7360000" />
-      <workItem from="1713809213620" duration="338000" />
+      <workItem from="1713809213620" duration="985000" />
     </task>
     <servers />
   </component>
@@ -131,20 +129,16 @@
           <line>47</line>
           <option name="timeStamp" value="12" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/pytraction/process.py</url>
-          <line>171</line>
-          <option name="timeStamp" value="13" />
-        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/inversion_py$process.coverage" NAME="process Coverage Results" MODIFIED="1713809785056" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/pytraction" />
     <SUITE FILE_PATH="coverage/tst_TractionForceReconstruction_BEM_py$tst_inversion.coverage" NAME="tst_inversion Coverage Results" MODIFIED="1713809123550" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/tst_TractionForceReconstruction_BEM_py$tst_TractionForceReconstruction_BEM.coverage" NAME="tst_TractionForceReconstruction_BEM Coverage Results" MODIFIED="1713805704038" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/pytraction/prelim_code/BoundaryElementMethod" />
     <SUITE FILE_PATH="coverage/setup_cfg$.coverage" NAME=" Coverage Results" MODIFIED="1713723920859" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/tst_TractionForceReconstruction_BEM_py$.coverage" NAME=" Coverage Results" MODIFIED="1713808949907" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/inversion_py$Analysis_RetinalExplants_2D_TFM___Example.coverage" NAME="Analysis_RetinalExplants_2D_TFM - Example Coverage Results" MODIFIED="1713809489776" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Desktop/2DTFM_10kPa_PAAGel_Fibroblasts_Example" />
+    <SUITE FILE_PATH="coverage/inversion_py$Analysis_RetinalExplants_2D_TFM___Example.coverage" NAME="Analysis_RetinalExplants_2D_TFM - Example Coverage Results" MODIFIED="1713810151193" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Desktop/2DTFM_10kPa_PAAGel_Fibroblasts_Example" />
     <SUITE FILE_PATH="coverage/core_py$.coverage" NAME=" Coverage Results" MODIFIED="1713772646047" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/setup_py$Analysis_RetinalExplants_2D_TFM___Example.coverage" NAME="Analysis_RetinalExplants_2D_TFM - Example Coverage Results" MODIFIED="1713721632899" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Desktop/2DTFM_10kPa_PAAGel_Fibroblasts_Example" />
     <SUITE FILE_PATH="coverage/tst_TractionForceReconstruction_BEM_py$prelim_regularization.coverage" NAME="prelim_regularization Coverage Results" MODIFIED="1713804824695" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/pytraction/prelim_code" />
