@@ -66,9 +66,9 @@ def find_uv_from_polygon(
         point = geometry.Point([x0, y0])
         if (not point.within(polygon)) and outside:
             # Appends displacement vector if outside of polygon
-            noise.append(np.array([u0, v0]))
+            noise.append(([u0, v0]))
         elif (point.within(polygon)) and (not outside):
             # Appends displacement vector if inside of polygon
-            noise.append(np.array([u0, v0]))
+            noise.append(([u0, v0]))
 
-    return np.array(noise)
+    return np.array(noise).flatten()

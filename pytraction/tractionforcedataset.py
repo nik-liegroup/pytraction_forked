@@ -31,11 +31,6 @@ class TractionForceDataset(object):
             length = list(f["frame"].keys())
         return len(length)
 
-    def frame_indices(self):
-        with h5py.File(self.log) as f:
-            indices = list(f["frame"].keys())
-        return indices
-
     def __getitem__(self, idx):
         if isinstance(idx, int):
             if idx > self.__len__():
@@ -55,13 +50,18 @@ class TractionForceDataset(object):
                     items[idx].append(np.array(f[f"{idx}/{i}"]))
             return pd.DataFrame(items)
 
+    def frame_indices(self):
+        with h5py.File(self.log) as f:
+            indices = list(f["frame"].keys())
+        return indices
+
     def _columns(self):
         return self.__getitem__(0).columns
 
     def metadata(self):
         with h5py.File(self.log) as f:
             metadata = {
-                x: f["metadata"].attrs[x].tostring() for x in f["metadata"].attrs.keys()
+                x: f["metadata"].attrs[x].tobytes() for x in f["metadata"].attrs.keys()
             }
         return metadata
 
@@ -73,7 +73,8 @@ class TractionForceDataset(object):
         else:
             return False
 
-    def load(self, filename):
+    @staticmethod
+    def load(filename):
         with open(filename, "rb") as f:
             log = f.read()
         return log
@@ -132,11 +133,10 @@ def write_tfm_results(
 
 def write_tfm_metadata(h5py_file: type(h5py.File), config: dict) -> type(h5py.File):
     """
-        Write metadata of TFM config file to a h5py file. To recover information in the future, use the following
-        syntax: h5py.File(h5py_file)['metadata'].attrs['...'].tobytes()
+    Write metadata of TFM config file to the h5py result file.
 
-        @param  h5py_file: Writeable h5py file.
-        @param  config: Config file for TFM analysis.
+    @param  h5py_file: Writeable h5py file.
+    @param  config: Config file for TFM analysis.
     """
     if "metadata" not in h5py_file:
         h5py_file["metadata"] = 0

@@ -1,7 +1,7 @@
 import os
 
 
-def validate_data_files():
+def validate_data_paths():
     # Config file
     assert os.path.join("example_data", "example_config.yaml")
 
