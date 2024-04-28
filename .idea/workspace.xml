@@ -5,21 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="aa5a2a67-0e00-4d52-a210-93534bed77ea" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/noise.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/noise.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/postprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/postprocess.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytraction/tractionforcedataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/pytraction/tractionforcedataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/conftest.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/conftest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/example_data/example2_fibroblast/2DTFM_10kPa_hPAAGel_3T3Fibroblasts_Reference.tif" beforeDir="false" afterPath="$PROJECT_DIR$/tests/example_data/example2_fibroblast/2DTFM_10kPa_hPAAGel_3T3Fibroblasts_Reference.tif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/example_data/example2_fibroblast/2DTFM_10kPa_hPAAGel_3T3Fibroblasts_TimeSeries.tif" beforeDir="false" afterPath="$PROJECT_DIR$/tests/example_data/example2_fibroblast/2DTFM_10kPa_hPAAGel_3T3Fibroblasts_TimeSeries.tif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/example_data/example5_tractiondataset/example_tractiondataset.h5" beforeDir="false" afterPath="$PROJECT_DIR$/tests/example_data/example5_tractiondataset/example_tractiondataset.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_core.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_core.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_inversion.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_kernels.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_noise.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_noise.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_postprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_postprocess.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -56,7 +41,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python tests.Python tests for test_core.test_config">
     <configuration name="Python tests for test_core.test_config" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="pytraction" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -161,6 +146,7 @@
       <workItem from="1713801767510" duration="7360000" />
       <workItem from="1713809213620" duration="1371000" />
       <workItem from="1714101555498" duration="16856000" />
+      <workItem from="1714339630115" duration="15000" />
     </task>
     <servers />
   </component>
