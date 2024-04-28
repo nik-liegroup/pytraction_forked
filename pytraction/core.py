@@ -171,17 +171,15 @@ class TractionForceConfig(object):
         @param  z_proj: Apply maximum intensity projection along z-axis for image and reference stacks.
         If set to False or dimension does not include z-axis, the center images will be used.
         """
-        # Read .tiff image and metadata file and store as numpy array and dictionary
+        # Read .tiff image and store as numpy array
         img = tifffile.imread(img_path)
-        img_meta = tifffile.TiffFile(img_path).imagej_metadata
 
         if ref_path is not None:
-            #  Read .tiff reference and metadata file and store as numpy array and dictionary
+            #  Read .tiff reference file and store as numpy array
             ref = tifffile.imread(ref_path)
-            ref_meta = tifffile.TiffFile(ref_path).imagej_metadata
         else:
             # Dynamic reference frame
-            ref, ref_meta = None, None
+            ref = None
 
         # Load ROI file
         roi = roi_loaders(roi_path)
@@ -190,13 +188,8 @@ class TractionForceConfig(object):
             msg = f"Image data not loaded for {img_path} or {ref_path}."
             raise TypeError(msg)
 
-        if not isinstance(img_meta, dict) or not isinstance(ref_meta, (dict, type(None))):
-            msg = f"Image metadata not loaded for {img_path} or {ref_path}."
-            raise TypeError(msg)
-
         # z-slice projection
-        if "slices" in img_meta:
-            assert len(img.shape) == 5
+        if len(img.shape) == 5:
             if z_proj is True:
                 img = np.max(img, axis=1)
                 msg = f"3D image stack was projected to a single z-plane and the new stack shape is {img.shape}."
@@ -214,8 +207,7 @@ class TractionForceConfig(object):
         if ref is None:
             msg = f"Using dynamic reference frame for PIV calculations."
             print(msg)
-        elif "slices" in ref_meta:
-            assert len(ref.shape) == 4
+        elif len(ref.shape) == 4:
             if z_proj is True:
                 ref = np.max(ref, axis=0)
                 msg = f"3D reference stack was projected to a single z-plane and the new stack shape is {ref.shape}."

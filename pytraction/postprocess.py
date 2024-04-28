@@ -170,7 +170,7 @@ def tfm_savegif(figs: list, sys_path: str, fps: float = 5):
     Creates .gif movie from matplotlib figures with provided frames per second.
     """
     # Set colorbar maximum of all figures equally to the largest
-    #figs, vmax = set_cbar_max(figs)  # ToDo: Fix
+    # figs, vmax = set_cbar_max(figs)  # ToDo: Fix
 
     images = []
     for fig in figs:
